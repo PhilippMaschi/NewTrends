@@ -2,13 +2,15 @@ from pathlib import Path
 from Heatdemand_rc_model import Heatdemand_rc_model
 
 # Einlesen der Daten:
-base_results_path = Path('V:/projects/2020_RES_H/invert/output_20201111/AUT')
+# base_results_path = Path('V:/projects/2020_RES_H/invert/output_20201111/AUT')
+base_results_path = Path('L:/projekte/_abgeschlossen/2015_P2H-Pot/Invert_Szenarien/Invert_output_new')
 
 # define scenarios:
-scenariolist = [r"_scen_aut_cheetah_ref_install_iopt_dh_95"]
+# scenariolist = [r"_scen_aut_cheetah_ref_install_iopt_dh_95"]
+scenariolist = [r'_scen_aut_a00_WAM_plus_v6_ren_mue']
 
 # start and end year:
-start_year = 2017
+start_year = 2020
 end_year = 2050
 
 # Grid reference year:
@@ -38,4 +40,7 @@ for scn in scenariolist:
             climdata_file_name = 'Kufstein_REGCM3_3665'
 
         for year in year_vektor:
-            Heatdemand_rc_model()
+            Heatdemand_rc_model(results_path_rcm, results_path_FWKWK_data, results_path_temperatures,
+                                run_number_str, year)
+
+
