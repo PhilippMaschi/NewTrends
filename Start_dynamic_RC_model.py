@@ -41,6 +41,6 @@ for scn in scenariolist:
 
         for year in year_vektor:
             Heatdemand_rc_model(results_path_rcm, results_path_FWKWK_data, results_path_temperatures,
-                                run_number_str, year)
+                                run_number_str, year, climdata_file_name)
 
 

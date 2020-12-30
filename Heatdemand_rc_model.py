@@ -3,10 +3,8 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-def remove_b(columns):
-    columns = columns.str.strip("b'")
 
-def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR):
+def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, climdata_file_name):
     # TODO für testen:
     YEAR = 2050
 
@@ -15,6 +13,8 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
     BCAT_4_8 = np.ones((1, 5))
     NUM_GFA_BEFORE_BCAT_1_3 = np.ones((6, 3))
     NUM_GFA_BEFORE_BCAT_4_8 = np.ones((1, 5))
+    NUM_GFA_AFTER_BCAT_1_3 = np.ones((6, 3))
+    NUM_GFA_AFTER_BCAT_4_8 = np.ones((1, 5))
 
     for k in range(1, 7):
         # TODO diese if abfragen in funktion ändern weil blöd für andere länder
@@ -100,7 +100,43 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
 
         bc_num_building_not_Zero_vctr = (data_num_gfa_per_GE.iloc[:, 1]/data_num_gfa_per_GE.iloc[:, 1].sum() > limit) &\
                                         (data_num_gfa_per_GE.iloc[:, 0] < data.iloc[:, 0].size)
+        bc_idx_not_Zero = data_num_build_per_GE[bc_num_building_not_Zero_vctr].iloc[:, 0]
+        bc_num_build = data_num_build_per_GE[bc_num_building_not_Zero_vctr].iloc[:, 1]
+        print("Number of BC classes: " + str(bc_num_build.size))
+        bc_gfa = data_num_gfa_per_GE[bc_num_building_not_Zero_vctr].iloc[:, 1]
+        Bcat_per_BC = data_Bcat_per_BC[bc_num_building_not_Zero_vctr]
+        print("WG")
+        for i in range(1, 4):
+            print("WG type " + str(i))
+            for j in range(1, 7): # Baukategorien
+                idx = Bcat_per_BC.loc[(Bcat_per_BC["bcat_map"] == i) &
+                                           (Bcat_per_BC["constrp_map"] == j), :].index
+                NUM_GFA_AFTER_BCAT_1_3[j-1, i-1] = bc_gfa[idx].sum()
+                ratio = NUM_GFA_BEFORE_BCAT_1_3[j-1, i-1] / max(0.000001, NUM_GFA_AFTER_BCAT_1_3[j-1, i-1])
+                # TODO wieso 8? Ist das das maximale mögliche ratio oder einfach so?
+                ratio = min(8, max(1, ratio))
+                bc_gfa[idx] = bc_gfa[idx] * ratio
+                bc_num_build[idx] = bc_num_build[idx] * ratio
 
+        print("NWG")
+        for i in range(1, 6):
+            idx = Bcat_per_BC.loc[Bcat_per_BC["bcat_map"] == (i + 3)].index
+            NUM_GFA_AFTER_BCAT_4_8[0, i-1] = bc_gfa[idx].sum()
+            ratio = NUM_GFA_BEFORE_BCAT_4_8[0, i-1] / max(0.000001, NUM_GFA_AFTER_BCAT_4_8[0, i-1])
+            ratio = min(8, max(1, ratio))
+            bc_gfa[idx] = bc_gfa[idx] * ratio
+            bc_num_build[idx] = bc_num_build[idx] * ratio
+
+        # reducing the data:
+        data = data.set_index("bc_index")
+        data_red = data.loc[bc_idx_not_Zero.values, :]
+
+        num_bc = bc_num_build.size
+        heat_day_treshold = np.arange(26, 33, 2)
+        heat_days = np.zeros((num_bc, len(heat_day_treshold)))
+
+        # load observed Grid Data:
+        obs_data = pd.read_csv(input_dir_constant + climdata_file_name + '.csv')
 
         a=1
 
