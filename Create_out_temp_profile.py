@@ -57,9 +57,13 @@ def Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PAT
     Te2 = np.array([3.1, 2.1, 8.1, 11.7, 18, 21.2, 23, 22.1, 18.6, 13, 6.4, 3.4])
     DeltaT05 = Te2 - Te1
 
+    # convert TEMP to np array:
+    Te_mean_month_clreg = TEMP.to_numpy()
+
+    cum_hours = 0
     # TODO von pandas auf numpy umsteigen weil schneller in schleifen...
-    for month in np.arange(1, 13):
-        days_this_month = DpM[month-1]
+    for month in np.arange(12): # achtung monat fängt bei 0 an!
+        days_this_month = DpM[month]
         num_hours = 24 * days_this_month
 
         # Erstellen des DailyTfacotrs mit std=0.0172 und mean=1
@@ -67,59 +71,71 @@ def Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PAT
         #Daily_T_factor = interpolate.splrep(M["Y"], M["x"])
 
         # daily temperatures:
-        Temin = TEMP.loc[month, :] - DeltaT05[month-1]
-        Temax = TEMP.loc[month, :] + DeltaT05[month-1]
+        Temin = Te_mean_month_clreg[month, :] - DeltaT05[month]
+        Temax = Te_mean_month_clreg[month, :] + DeltaT05[month]
         angle_offset = -9  # TODO was ist das? ändert er sich für andere länder?
+        # TODO Wieso werden die Matrizen auf 24 aufgeblasen und nicht auf 12 (monate)?
         sinus_fkt = np.sin((np.arange(0.5, 24) + angle_offset) / (24 / 2 / 3.1415))
-        Te_month_konst = pd.concat([(Temax - Temin) / 2 + Temin] * 24, axis=1) + \
-                         pd.concat([(Temax - Temin) / 2 * n for n in sinus_fkt], axis=1)
+        Te_month_konst = np.tile((Temax - Temin) / 2 + Temin, (24, 1)).T + \
+                         np.outer((Temax - Temin) / 2, sinus_fkt)
 
-        if month == 1:
-            Tm_0 = pd.concat([(Te_month_konst.iloc[:, 0] * 5 + 20) / 6] * 24, axis=1)
-            Tm_10 = pd.concat([(Te_month_konst.iloc[:, 0] * 2 + 20) / 3] * 24, axis=1)
+        if month == 0:
+            Tm_0 = np.tile((Te_month_konst[:, 0] * 5 + 20) / 6, (24,1)).T
+            Tm_10 = np.tile((Te_month_konst[:, 0] * 2 + 20) / 3, (24,1)).T
 
-        if month > 1:
-            delta_Tmonth_prev = TEMP.loc[month, :] - TEMP.loc[month-1, :]
+        if month > 0:
+            delta_Tmonth_prev = Te_mean_month_clreg[month, :] - Te_mean_month_clreg[month-1, :]
         else:
-            delta_Tmonth_prev = TEMP.loc[month, :] - TEMP.loc[12, :] # TODO -temp von Dez?
+            delta_Tmonth_prev = Te_mean_month_clreg[month, :] - Te_mean_month_clreg[11, :] # TODO -temp von Dez?
 
-        if month < 12:
-            delta_Tmonth_next = TEMP.loc[month + 1, :] - TEMP.loc[month, :]
+        if month < 11:
+            delta_Tmonth_next = Te_mean_month_clreg[month + 1, :] - Te_mean_month_clreg[month, :]
         else:
-            delta_Tmonth_next = TEMP.loc[1, :] - TEMP.loc[month, :]
+            delta_Tmonth_next = Te_mean_month_clreg[0, :] - Te_mean_month_clreg[month, :]
 
         # describes the relative change of the month compared to next and last month times all days??
         days_prev_trend_prev_month = days_this_month * (delta_Tmonth_next / (delta_Tmonth_next + delta_Tmonth_prev))
-        days_prev_trend_prev_month = days_prev_trend_prev_month.reset_index(drop=True)
 
-        # convert TEMP to np array:
-        Te_mean_month_clreg = TEMP.to_numpy()
         for day in np.arange(days_this_month): # achtung tage fangen bei 0 an!
             # Variation der Tagesmitteltemperaturen innerhalb eines Monats
-            curr_Daily_T_factor = (TEMP.loc[month, :] + 273) * Daily_T_factor2[day] - 273 - TEMP.loc[month, :]
-            Te = Te_month_konst + pd.concat([curr_Daily_T_factor] * 24, axis=1)
-            Te.columns = [np.arange(0, Te.shape[1])]
+            curr_Daily_T_factor = (Te_mean_month_clreg[month, :] + 273) * Daily_T_factor2[day] - \
+                                  273 - Te_mean_month_clreg[month, :]
+            Te = Te_month_konst + np.tile(curr_Daily_T_factor, (24,1)).T
 
             # Trend der Tagestemperatur zur durchschnittlichen Tagestemp des nächsten monats
-            idx = days_prev_trend_prev_month.loc[days_prev_trend_prev_month > day].index
-            dT_thisday[idx] = - ((days_prev_trend_prev_month.values[idx] - day) / (
-                    days_prev_trend_prev_month.values[idx] - 1) * delta_Tmonth_prev.values[idx] / 2)
-            idx = days_prev_trend_prev_month.loc[days_prev_trend_prev_month < day].index
+            idx = np.where(days_prev_trend_prev_month>day)
+            dT_thisday[idx] = - ((days_prev_trend_prev_month[idx] - day) / (
+                    days_prev_trend_prev_month[idx] - 1) * delta_Tmonth_prev[idx] / 2)
+            idx = np.where(days_prev_trend_prev_month<day)
             # TODO warum 30- und nicht monatstag?
-            dT_thisday[idx] = ((day - days_prev_trend_prev_month.values[idx]) /
-                                np.maximum(1, np.maximum(0, 30 - days_prev_trend_prev_month.values[idx])) *
-                                delta_Tmonth_next.values[idx] / 2)
-            Te = Te.reset_index(drop=True).values + np.tile(dT_thisday, (24, 1)).T
-            # TODO Te ist jetzt numpy array.. fange an alles in numpy zu machen
-            idx = days_prev_trend_prev_month.loc[days_prev_trend_prev_month > (day + 1)].index
-            dT_nextday[idx] = - ((days_prev_trend_prev_month.values[idx] - day) / (
-                    days_prev_trend_prev_month.values[idx] - 1) * delta_Tmonth_prev.values[idx] / 2)
-            idx = days_prev_trend_prev_month.loc[days_prev_trend_prev_month < (day + 1)].index
-            dT_nextday[idx] = ((day - days_prev_trend_prev_month.values[idx]) /
-                                np.maximum(1, np.maximum(0, 30 - days_prev_trend_prev_month.values[idx])) *
-                                delta_Tmonth_next.values[idx] / 2)
+            dT_thisday[idx] = ((day - days_prev_trend_prev_month[idx]) /
+                                np.maximum(1, np.maximum(0, 30 - days_prev_trend_prev_month[idx])) *
+                                delta_Tmonth_next[idx] / 2)
+            Te = Te + np.tile(dT_thisday, (24, 1)).T
+
+            idx = np.where(days_prev_trend_prev_month > (day + 1))
+            dT_nextday[idx] = - ((days_prev_trend_prev_month[idx] - day) / (
+                    days_prev_trend_prev_month[idx] - 1) * delta_Tmonth_prev[idx] / 2)
+            idx = np.where(days_prev_trend_prev_month < (day + 1))
+            dT_nextday[idx] = ((day - days_prev_trend_prev_month[idx]) /
+                                np.maximum(1, np.maximum(0, 30 - days_prev_trend_prev_month[idx])) *
+                                delta_Tmonth_next[idx] / 2)
+
 
             # Trend innerhalb des Tages zur Tagestemperatur des nächsten Tages
-            delta_Te = (Te_month_konst(:, 1) + 273) *Daily_T_factor2(min(day + 1, days_this_month)) - (Te_month_konst(:,1)+273) * Daily_T_factor2(day) + dT_nextday - dT_thisday
+            delta_Te = (Te_month_konst[:, 0] + 273) * Daily_T_factor2[min(day + 1, days_this_month-1)] - \
+                        (Te_month_konst[:,1] + 273) * Daily_T_factor2[day] + dT_nextday - dT_thisday
+            Te = Te + np.outer(delta_Te, (np.arange(24) / 23))
+            # tag muss +1 gerechnet werden weil sie bei 0 beginnen
+            time_vector = np.arange(cum_hours + day * 24, cum_hours + (day+1) * 24)
+            T_e_8760_clreg[:, time_vector] = Te
 
-        a = 1
+        time_vector = np.arange(cum_hours, cum_hours + num_hours)
+
+        # Correct my algorithm towards (corrected) HSKD Data ???
+        Delta_T_e_avg = np.mean(T_e_8760_clreg[:, time_vector], axis=1) - \
+                        np.mean(T_e_HSKD_8760_clreg.to_numpy().T[:, time_vector], axis=1)
+        T_e_8760_clreg[:, time_vector] = T_e_8760_clreg[:, time_vector] - np.tile(Delta_T_e_avg, (num_hours,1)).T
+        cum_hours = cum_hours + num_hours
+
+    a = 1
