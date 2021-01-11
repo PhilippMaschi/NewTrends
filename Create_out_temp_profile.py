@@ -137,5 +137,7 @@ def Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PAT
                         np.mean(T_e_HSKD_8760_clreg.to_numpy().T[:, time_vector], axis=1)
         T_e_8760_clreg[:, time_vector] = T_e_8760_clreg[:, time_vector] - np.tile(Delta_T_e_avg, (num_hours,1)).T
         cum_hours = cum_hours + num_hours
+    # TODO warum wird T_e_8760_clreg nciht mehr verwendet in weiterer folge??
+    return T_e_8760_clreg, T_e_HSKD_8760_clreg
 
-    a = 1
+

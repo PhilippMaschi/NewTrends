@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from Create_out_temp_profile import Create_out_temp_profile
+from Create_set_temp_profile import CREATE_SET_TEMP_PROFILE
 
 
 def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, climdata_file_name):
@@ -157,7 +158,14 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
                                     "te_obs": ds_hourly.loc[:, "te_obs"].mean()}, index=[0])
 
         # call create temp profile skript:
-        Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PATH, YEAR, ds_hourly)
+        T_e_8760_clreg, T_e_HSKD_8760_clreg = \
+            Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PATH, YEAR, ds_hourly)
+
+        # TODO das macht überhaupt keinen Sinn (komm später zurück warum das gebraucht wird.
+        ds_hourly = pd.concat(ds_hourly, T_e_HSKD_8760_clreg)
+
+        #  CREATE Tset TEMPERATURE PROFILE
+        CREATE_SET_TEMP_PROFILE()
 
         a = 1
 
