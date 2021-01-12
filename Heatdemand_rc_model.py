@@ -3,6 +3,7 @@ import pandas as pd
 from pathlib import Path
 from Create_out_temp_profile import Create_out_temp_profile
 from Create_set_temp_profile import CREATE_SET_TEMP_PROFILE
+from Create_dhw_energyneed_profile import CREATE_DHW_ENERGYDEMAND_PROFILE
 
 
 def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, climdata_file_name):
@@ -173,7 +174,7 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
                    keys=["orig", "T_e_clreg", "Tset_heating_8760_up", "Tset_cooling_8760_up"])
 
         # CREATE DHW PROFILE
-
+        CREATE_DHW_ENERGYDEMAND_PROFILE(RN, YEAR, OUTPUT_PATH)
 
         a = 1
 
