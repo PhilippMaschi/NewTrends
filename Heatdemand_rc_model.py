@@ -162,10 +162,10 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
             Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PATH, YEAR, ds_hourly)
 
         # TODO das macht überhaupt keinen Sinn (komm später zurück warum das gebraucht wird.
-        ds_hourly = pd.concat(ds_hourly, T_e_HSKD_8760_clreg)
+        ds_hourly = pd.concat([ds_hourly, T_e_HSKD_8760_clreg], axis=1)
 
         #  CREATE Tset TEMPERATURE PROFILE
-        CREATE_SET_TEMP_PROFILE()
+        CREATE_SET_TEMP_PROFILE(RN, YEAR, OUTPUT_PATH)
 
         a = 1
 
