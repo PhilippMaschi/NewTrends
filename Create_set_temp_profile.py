@@ -92,3 +92,5 @@ def CREATE_SET_TEMP_PROFILE(RN, YEAR, OUTPUT_PATH):
     Tset_heating_8760_up[:, np.where(HOURLY_PROFILE == 1)[1]] = \
         np.minimum(Tset_heating_8760_up[:, np.where(HOURLY_PROFILE == 1)[1]],
                    np.tile(Tset_heating_vector_up - 2, (int(T_24.sum()) * 365, 1)).T)
+
+    return Tset_heating_8760_up, Tset_cooling_8760_up
