@@ -174,7 +174,9 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
                    keys=["orig", "T_e_clreg", "Tset_heating_8760_up", "Tset_cooling_8760_up"])
 
         # CREATE DHW PROFILE
-        CREATE_DHW_ENERGYDEMAND_PROFILE(RN, YEAR, OUTPUT_PATH)
+        DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up = \
+            CREATE_DHW_ENERGYDEMAND_PROFILE(RN, YEAR, OUTPUT_PATH)
+
 
         a = 1
 
