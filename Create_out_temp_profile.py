@@ -23,25 +23,6 @@ def Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PAT
 
     # Days per month
     DpM = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    h = np.arange(1, 25)
-
-    # sol_hx = min(14, max(0, h + 0.5 - 6.5))
-    sol_hx = []
-    for i in h:
-        if h[i-1] + 0.5 - 6.5 < 0:
-            sol_hx.append(0)
-        elif h[i-1] + 0.5 - 6.5 > 14:
-            sol_hx.append(14)
-        else:
-            sol_hx.append(h[i-1] + 0.5 - 6.5)
-
-    # sol_rad_norm = max(0, np.sin(3.1415 * sol_hx / 13)) / 8.2360
-    sol_rad_norm = []
-    for i in sol_hx:
-        if np.sin(3.1415 * i / 13) / 8.2360 < 0:
-            sol_rad_norm.append(0)
-        else:
-            sol_rad_norm.append(np.sin(3.1415 * i / 13) / 8.2360)
 
     T_e_HSKD_8760 = ds_hourly.loc[:, "te_obs"]
     T_e_8760_clreg = np.zeros((num_clreg, 8760))
@@ -137,7 +118,7 @@ def Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PAT
                         np.mean(T_e_HSKD_8760_clreg.to_numpy().T[:, time_vector], axis=1)
         T_e_8760_clreg[:, time_vector] = T_e_8760_clreg[:, time_vector] - np.tile(Delta_T_e_avg, (num_hours,1)).T
         cum_hours = cum_hours + num_hours
-    # TODO warum wird T_e_8760_clreg nciht mehr verwendet in weiterer folge??
+    # TODO warum wird T_e_8760_clreg nicht mehr verwendet in weiterer folge??
     return T_e_8760_clreg, T_e_HSKD_8760_clreg
 
 

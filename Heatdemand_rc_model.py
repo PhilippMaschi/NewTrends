@@ -4,6 +4,7 @@ from pathlib import Path
 from Create_out_temp_profile import Create_out_temp_profile
 from Create_set_temp_profile import CREATE_SET_TEMP_PROFILE
 from Create_dhw_energyneed_profile import CREATE_DHW_ENERGYDEMAND_PROFILE
+from Core_rc_model import core_rc_model
 
 
 def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, climdata_file_name):
@@ -31,7 +32,7 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
 
             # Wohngebäude mit je 6 Bauperioden (4 historisch, 5 Leer, 6 Neubau)
             # BCAT_1_3 = [1.0,0.5, 0.2, 0.2, 0.0, 1] *[1, 0.5, 0.3]
-            # TODO Andi frage was es mit den BCAT matrizen auf sich hat
+            # TODO Andi fragen was es mit den BCAT matrizen auf sich hat
             BCAT_4_8[0, -2:] = 0
 
             TGridmom = 75
@@ -162,21 +163,29 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         T_e_8760_clreg, T_e_HSKD_8760_clreg = \
             Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PATH, YEAR, ds_hourly)
 
-
-
         #  CREATE SET TEMPERATURE PROFILE
         Tset_heating_8760_up, Tset_cooling_8760_up = CREATE_SET_TEMP_PROFILE(RN, YEAR, OUTPUT_PATH)
 
         # TODO das macht überhaupt keinen Sinn (T_e_HSKD_8760_clreg) (komm später zurück warum das gebraucht wird.
         # TODO eventuell auch auf numpy array umstellen (nur mit welchen column names??)
         ds_hourly = pd.concat([ds_hourly, T_e_HSKD_8760_clreg, pd.DataFrame(Tset_heating_8760_up),
-                   pd.DataFrame(Tset_cooling_8760_up)], axis=1,
-                   keys=["orig", "T_e_clreg", "Tset_heating_8760_up", "Tset_cooling_8760_up"])
+                               pd.DataFrame(Tset_cooling_8760_up)], axis=1,
+                              keys=["orig", "T_e_clreg", "Tset_heating_8760_up", "Tset_cooling_8760_up"])
 
         # CREATE DHW PROFILE
         DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up = \
             CREATE_DHW_ENERGYDEMAND_PROFILE(RN, YEAR, OUTPUT_PATH)
 
+        # TODO implement data of building segments!
+        # data of building segments (number of buildings)
+        # data_bssh = load([OUTPUT_PATH, RN '_dynamic_calc_data_bssh_' num2str(YEAR) '.mat'])
+
+        # solar radiation
+        datei = RN + '__climate_data_solar_rad_' + str(YEAR) + ".csv"
+        sol_rad = pd.read_csv(OUTPUT_PATH / datei)
+
+        # core rc model nach DIN EN ISO 13790:
+        core_rc_model(sol_rad, data_red)
 
         a = 1
 
