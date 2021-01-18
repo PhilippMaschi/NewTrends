@@ -26,7 +26,7 @@ def Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PAT
 
     T_e_HSKD_8760 = ds_hourly.loc[:, "te_obs"]
     T_e_8760_clreg = np.zeros((num_clreg, 8760))
-    T_e_HSKD_8760_clreg = pd.concat([T_e_HSKD_8760] * num_clreg, axis=1)
+    T_e_HSKD_8760_clreg = np.tile(T_e_HSKD_8760, (num_clreg, 1))
 
     # Temperature and Climate:
     Te_month_mean2 = np.zeros((num_clreg, 12))
