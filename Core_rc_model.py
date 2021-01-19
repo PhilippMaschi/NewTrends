@@ -1,5 +1,83 @@
 import numpy as np
 
+def create_matrix_after_day(num_bc):
+    Q_H_RC_day = np.zeros((num_bc, 24))
+    Q_C_RC_day = np.zeros((num_bc, 24))
+    Q_DHW_RC_day = np.zeros((num_bc, 24))
+    Q_H_EB_day = np.zeros((num_bc, 24))
+    Q_C_EB_day = np.zeros((num_bc, 24))
+    Q_HC = np.zeros((num_bc, 24))
+
+    return Q_H_RC_day, Q_C_RC_day, Q_DHW_RC_day, Q_H_EB_day, Q_C_EB_day, Q_HC
+
+def create_matrix_before_day(num_bc, days_this_month):
+    Top_month = np.zeros((num_bc, 24 * days_this_month))
+    Tair_month = np.zeros((num_bc, 24 * days_this_month))
+    Ts_month = np.zeros((num_bc, 24 * days_this_month))
+
+    # Zero additional Heating
+    X_0 = np.zeros((num_bc, 24))
+    PHIm_tot_0 = np.zeros((num_bc, 24))
+    Tm_0 = np.zeros((num_bc, 24))
+    Ts_0 = np.zeros((num_bc, 24))
+    Tair_0 = np.zeros((num_bc, 24))
+    Top_0 = np.zeros((num_bc, 24))
+    # 10 W / m2 additional Heating
+    X_10 = np.zeros((num_bc, 24))
+    PHIm_tot_10 = np.zeros((num_bc, 24))
+    Tm_10 = np.zeros((num_bc, 24))
+    Ts_10 = np.zeros((num_bc, 24))
+    Tair_10 = np.zeros((num_bc, 24))
+    Top_10 = np.zeros((num_bc, 24))
+    # actual Heating and Cooling Loads
+    X_HC = np.zeros((num_bc, 24))
+    PHIm_tot_HC = np.zeros((num_bc, 24))
+    Tm_HC = np.zeros((num_bc, 24))
+    Ts_HC = np.zeros((num_bc, 24))
+    Tair_HC = np.zeros((num_bc, 24))
+    Top_HC = np.zeros((num_bc, 24))
+
+    PHIm = np.zeros((num_bc, 24))
+    PHIst = np.zeros((num_bc, 24))
+    PHIia = np.zeros((num_bc, 24))
+    Qsol = np.zeros((num_bc, 24))
+
+    Q_H_RC = np.zeros((num_bc, 24))
+    Q_C_RC = np.zeros((num_bc, 24))
+
+    Q_H_EB = np.zeros((num_bc, 24))
+    Q_C_EB = np.zeros((num_bc, 24))
+    return Top_month, Tair_month, Ts_month, X_0, PHIm_tot_0, Tm_0, Ts_0, Tair_0, Top_0, X_10, PHIm_tot_10, Tm_10, \
+           Ts_10, Tair_10, Top_10, X_HC, PHIm_tot_HC, Tm_HC, Ts_HC, Tair_HC, Top_HC, PHIm, PHIst, PHIia, Qsol, Q_H_RC, \
+           Q_C_RC, Q_H_EB, Q_C_EB
+
+def create_matrix_before_month(num_bc):
+    Q_H_month_RC = np.zeros((num_bc,12))
+    Q_H_month_EB = np.zeros((num_bc,12))
+    Q_C_month_RC = np.zeros((num_bc,12))
+    Q_C_month_EB = np.zeros((num_bc,12))
+
+    T_op_0_hourly = np.zeros((num_bc, 8760))
+    T_op_10_hourly = np.zeros((num_bc, 8760))
+    T_op_HC_hourly = np.zeros((num_bc, 8760))
+    T_s_0_hourly = np.zeros((num_bc, 8760))
+    T_s_10_hourly = np.zeros((num_bc, 8760))
+    T_s_HC_hourly = np.zeros((num_bc, 8760))
+    T_air_0_hourly = np.zeros((num_bc, 8760))
+    T_air_10_hourly = np.zeros((num_bc, 8760))
+    T_air_HC_hourly = np.zeros((num_bc, 8760))
+    T_m_0_hourly = np.zeros((num_bc, 8760))
+    T_m_10_hourly = np.zeros((num_bc, 8760))
+    T_m_HC_hourly = np.zeros((num_bc, 8760))
+
+    Q_H_LOAD_8760 = np.zeros((num_bc, 8760))
+    Q_C_LOAD_8760 = np.zeros((num_bc, 8760))
+    Q_DHW_LOAD_8760 = np.zeros((num_bc, 8760))
+    T_Set_8760 = np.zeros((num_bc, 8760))
+    return Q_H_month_RC, Q_H_month_EB, Q_C_month_RC, Q_C_month_EB, T_op_0_hourly, T_op_10_hourly, T_op_HC_hourly, \
+           T_s_0_hourly, T_s_10_hourly, T_s_HC_hourly, T_air_0_hourly, T_air_10_hourly, T_air_HC_hourly, T_m_0_hourly, \
+           T_m_10_hourly, T_m_HC_hourly, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, T_Set_8760
+
 
 
 def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
@@ -90,6 +168,10 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
     Q_DHW_losses = DHW_losses_m2_8760_up[UserProfile_idx, :] * np.tile(Af, (8760, 1)).T
     Q_DHW_LOAD_8760 = DHW_need_day_m2_8760_up[UserProfile_idx, :] * np.tile(Af, (8760, 1)).T + Q_DHW_losses
 
+    Q_H_month_RC, Q_H_month_EB, Q_C_month_RC, Q_C_month_EB, T_op_0_hourly, T_op_10_hourly, T_op_HC_hourly, \
+    T_s_0_hourly, T_s_10_hourly, T_s_HC_hourly, T_air_0_hourly, T_air_10_hourly, T_air_HC_hourly, T_m_0_hourly, \
+    T_m_10_hourly, T_m_HC_hourly, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, T_Set_8760 = \
+        create_matrix_before_month(num_bc)
     cum_hours = 0
     for month in range(12):
         days_this_month = DpM[month]
@@ -105,7 +187,11 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
         # Like PHIHC_nd but with 10 W/m2 internal load
         PHIHC_nd10 = PHIHC_nd + np.tile(Af * 10, (num_hours, 1)).T
 
+        Top_month, Tair_month, Ts_month, X_0, PHIm_tot_0, Tm_0, Ts_0, Tair_0, Top_0, X_10, PHIm_tot_10, Tm_10, \
+        Ts_10, Tair_10, Top_10, X_HC, PHIm_tot_HC, Tm_HC, Ts_HC, Tair_HC, Top_HC, PHIm, PHIst, PHIia, Qsol, Q_H_RC, \
+        Q_C_RC, Q_H_EB, Q_C_EB = create_matrix_before_day(num_bc, days_this_month)
         for day in range(days_this_month):
+            Q_H_RC_day, Q_C_RC_day, Q_DHW_RC_day, Q_H_EB_day, Q_C_EB_day, Q_HC = create_matrix_after_day(num_bc)
             # time_day_vector represents the index for the hours of one day (eg: 24-48 for second day in year)
             time_day_vector = np.arange(cum_hours + day * 24, cum_hours + (day+1) * 24)
 
@@ -138,6 +224,11 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
                 Tset_h = Tset_h + (Te[:, hour] - Tset_h + 12) / 8
                 Tset_c = Tset_cooling_8760_up[UserProfile_idx, cum_hours + day * 24 + hour]
 
+                # Hourly Losses DHW supply
+                Qloss_DWH = Q_DHW_losses[:, cum_hours + day * 24 + hour]
 
+                # solar gains through windows
+                Qsol[:, hour] = Awindows_rad_north * sol_rad_n + Awindows_rad_east_west * sol_rad_ea + \
+                                Awindows_rad_south * sol_rad_s
 
     a = 1
