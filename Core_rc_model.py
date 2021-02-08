@@ -373,3 +373,4 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
     save_to_h5('outputdata/', 'Building_load_curve_' + obs_data_file_name + '.h5', Q_H_LOAD_8760, Q_C_LOAD_8760,
                Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index)
 
+    return  Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index

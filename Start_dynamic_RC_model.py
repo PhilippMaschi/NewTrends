@@ -1,6 +1,9 @@
 from pathlib import Path
 from Heatdemand_rc_model import Heatdemand_rc_model
 
+# definiere ob daten neu berechnet werden sollen oder schon berechnet wurden:
+load_data=False
+
 # Einlesen der Daten:
 # base_results_path = Path('V:/projects/2020_RES_H/invert/output_20201111/AUT')
 base_results_path = Path('L:/projekte/_abgeschlossen/2015_P2H-Pot/Invert_Szenarien/Invert_output_new')
@@ -41,6 +44,6 @@ for scn in scenariolist:
 
         for year in year_vektor:
             Heatdemand_rc_model(results_path_rcm, results_path_FWKWK_data, results_path_temperatures,
-                                run_number_str, year, climdata_file_name)
+                                run_number_str, year, climdata_file_name, load_data)
 
 
