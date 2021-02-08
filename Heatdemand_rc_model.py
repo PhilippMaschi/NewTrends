@@ -133,10 +133,6 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         data = data.set_index("bc_index")
         data_red = data.loc[bc_idx_not_Zero.values, :]
 
-        num_bc = bc_num_build.size
-        heat_day_treshold = np.arange(26, 33, 2)
-        heat_days = np.zeros((num_bc, len(heat_day_treshold)))
-
         # load observed Grid Data:
         obs_data = pd.read_csv(input_dir_constant + climdata_file_name + ".csv", header=None)
 
@@ -159,7 +155,7 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         ds_annually = pd.DataFrame({"load_obs": obs_data.loc[:, 2].sum(),
                                     "te_obs": ds_hourly.loc[:, "te_obs"].mean()}, index=[0])
 
-        # call create temp profile skript:
+        # call create temp profile skript: Ergebnisse sind numpy frames!
         T_e_8760_clreg, T_e_HSKD_8760_clreg = \
             Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PATH, YEAR, ds_hourly)
 
@@ -168,9 +164,9 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
 
         # TODO das macht überhaupt keinen Sinn (T_e_HSKD_8760_clreg) (komm später zurück warum das gebraucht wird.
         # TODO eventuell auch auf numpy array umstellen (nur mit welchen column names??)
-        ds_hourly = pd.concat([ds_hourly, T_e_HSKD_8760_clreg, pd.DataFrame(Tset_heating_8760_up),
-                               pd.DataFrame(Tset_cooling_8760_up)], axis=1,
-                              keys=["orig", "T_e_clreg", "Tset_heating_8760_up", "Tset_cooling_8760_up"])
+        # ds_hourly = pd.concat([ds_hourly, pd.DataFrame(T_e_HSKD_8760_clreg), pd.DataFrame(Tset_heating_8760_up),
+        #                        pd.DataFrame(Tset_cooling_8760_up)], axis=1,
+        #                       keys=["orig", "T_e_clreg", "Tset_heating_8760_up", "Tset_cooling_8760_up"])
 
         # CREATE DHW PROFILE
         DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up = \
@@ -185,7 +181,9 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         sol_rad = pd.read_csv(OUTPUT_PATH / datei)
 
         # core rc model nach DIN EN ISO 13790:
-        core_rc_model(sol_rad, data_red)
+        core_rc_model(sol_rad, data_red, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
+                      share_Circulation_DHW, T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up,
+                      obs_data_file_name)
 
         a = 1
 
