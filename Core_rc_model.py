@@ -4,23 +4,27 @@ from pyomo.dae import *
 import h5py
 import os
 
-def save_to_hdf(h5_name):
+def save_to_h5(outputpath, h5_name, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr,
+               climate_region_index):
+    print('hf file is being saved...')
     # check if folder exists:
     try:
-        os.makedirs(h5_name)
+        os.makedirs(outputpath)
     except FileExistsError:
         pass
     # create file object, h5_name is path and name of file
-    hf = h5py.File(h5_name, "w")
+    hf = h5py.File(outputpath + h5_name, "w")
+    # files can be compressed with compression="lzf" and compression_opts=0-9 to save space, but then it reads slower
     hf.create_dataset("Q_H_LOAD_8760", data=Q_H_LOAD_8760)
     hf.create_dataset("Q_C_LOAD_8760", data=Q_C_LOAD_8760)
     hf.create_dataset("Q_DHW_LOAD_8760", data=Q_DHW_LOAD_8760)
 
     hf.create_dataset("Af", data=Af)
     hf.create_dataset("bc_num_building_not_Zero_vctr", data=bc_num_building_not_Zero_vctr)
-    hf.create_dataset("ClimReg_idx_bc", data=ClimReg_idx_bc)
+    hf.create_dataset("climate_region_index", data=climate_region_index)
     # save data
     hf.close()
+    print('saving hf completed')
 
 
 def create_matrix_after_day(num_bc):
@@ -106,7 +110,7 @@ def create_matrix_before_month(num_bc):
 
 def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
                   share_Circulation_DHW, T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up,
-                  obs_data_file_name):
+                  bc_num_building_not_Zero_vctr, obs_data_file_name):
     # umbenennung der variablen zum vergleich mit matlab und in shape (..., 8760)
     T_e_clreg = T_e_HSKD_8760_clreg
 
@@ -366,7 +370,6 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
         # END YEAR
 
     # save data to h5 file for fast accessability later:
-    save_to_hdf('outputdata/Building_load_curve_' + obs_data_file_name + '.h5')
+    save_to_h5('outputdata/', 'Building_load_curve_' + obs_data_file_name + '.h5', Q_H_LOAD_8760, Q_C_LOAD_8760,
+               Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index)
 
-
-    a = 1

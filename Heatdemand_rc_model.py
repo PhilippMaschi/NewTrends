@@ -5,7 +5,16 @@ from Create_out_temp_profile import Create_out_temp_profile
 from Create_set_temp_profile import CREATE_SET_TEMP_PROFILE
 from Create_dhw_energyneed_profile import CREATE_DHW_ENERGYDEMAND_PROFILE
 from Core_rc_model import core_rc_model
+import h5py
 
+
+def read_h5(filename):
+    print('reading hf file...')
+    dict = {}
+    hf = h5py.File(filename, "r")
+    for key in hf.keys():
+        dict[key] = hf.get(key)
+        a=1
 
 def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, climdata_file_name):
     # TODO für testen:
@@ -38,6 +47,9 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
             TGridmom = 75
             TGridmin = 75
             scale_DHW = 1
+
+        # obs_data_file_name combines region and climate data file names
+        obs_data_file_name = region_obs_data_file_name + '-' + climdata_file_name
 
         # load building stock data exportet by invert run:
         datei = str(RN) + "__dynamic_calc_data_bc_" + str(YEAR) + ".npz"
@@ -183,7 +195,7 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         # core rc model nach DIN EN ISO 13790:
         core_rc_model(sol_rad, data_red, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
                       share_Circulation_DHW, T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up,
-                      obs_data_file_name)
+                      bc_num_building_not_Zero_vctr, obs_data_file_name)
 
         a = 1
 
