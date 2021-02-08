@@ -1,4 +1,27 @@
 import numpy as np
+from pyomo.environ import *
+from pyomo.dae import *
+import h5py
+import os
+
+def save_to_hdf(h5_name):
+    # check if folder exists:
+    try:
+        os.makedirs(h5_name)
+    except FileExistsError:
+        pass
+    # create file object, h5_name is path and name of file
+    hf = h5py.File(h5_name, "w")
+    hf.create_dataset("Q_H_LOAD_8760", data=Q_H_LOAD_8760)
+    hf.create_dataset("Q_C_LOAD_8760", data=Q_C_LOAD_8760)
+    hf.create_dataset("Q_DHW_LOAD_8760", data=Q_DHW_LOAD_8760)
+
+    hf.create_dataset("Af", data=Af)
+    hf.create_dataset("bc_num_building_not_Zero_vctr", data=bc_num_building_not_Zero_vctr)
+    hf.create_dataset("ClimReg_idx_bc", data=ClimReg_idx_bc)
+    # save data
+    hf.close()
+
 
 def create_matrix_after_day(num_bc):
     Q_H_RC_day = np.zeros((num_bc, 24))
@@ -9,6 +32,7 @@ def create_matrix_after_day(num_bc):
     Q_HC = np.zeros((num_bc, 24))
 
     return Q_H_RC_day, Q_C_RC_day, Q_DHW_RC_day, Q_H_EB_day, Q_C_EB_day, Q_HC
+
 
 def create_matrix_before_day(num_bc, days_this_month):
     Top_month = np.zeros((num_bc, 24 * days_this_month))
@@ -51,11 +75,12 @@ def create_matrix_before_day(num_bc, days_this_month):
            Ts_10, Tair_10, Top_10, X_HC, PHIm_tot_HC, Tm_HC, Ts_HC, Tair_HC, Top_HC, PHIm, PHIst, PHIia, Qsol, Q_H_RC, \
            Q_C_RC, Q_H_EB, Q_C_EB
 
+
 def create_matrix_before_month(num_bc):
-    Q_H_month_RC = np.zeros((num_bc,12))
-    Q_H_month_EB = np.zeros((num_bc,12))
-    Q_C_month_RC = np.zeros((num_bc,12))
-    Q_C_month_EB = np.zeros((num_bc,12))
+    Q_H_month_RC = np.zeros((num_bc, 12))
+    Q_H_month_EB = np.zeros((num_bc, 12))
+    Q_C_month_RC = np.zeros((num_bc, 12))
+    Q_C_month_EB = np.zeros((num_bc, 12))
 
     T_op_0_hourly = np.zeros((num_bc, 8760))
     T_op_10_hourly = np.zeros((num_bc, 8760))
@@ -79,9 +104,9 @@ def create_matrix_before_month(num_bc):
            T_m_10_hourly, T_m_HC_hourly, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, T_Set_8760
 
 
-
 def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
-                  share_Circulation_DHW, T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up):
+                  share_Circulation_DHW, T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up,
+                  obs_data_file_name):
     # umbenennung der variablen zum vergleich mit matlab und in shape (..., 8760)
     T_e_clreg = T_e_HSKD_8760_clreg
 
@@ -113,6 +138,7 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
     Hop = data.loc[:, "Hop"].to_numpy()
     # Speicherkapazität
     Cm = data.loc[:, "CM_factor"].to_numpy() * Af
+    #
     Am = data.loc[:, "Am_factor"].to_numpy() * Af
     # internal gains
     Qi = data.loc[:, "spec_int_gains_cool_watt"].to_numpy() * Af
@@ -144,7 +170,7 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
             sol_rad_norm.append(np.sin(3.1415 * i / 13) / 8.2360)
 
     num_bc = len(Qi)
-    print("Number if building classes: " + str(num_bc))
+    print("Number of building classes: " + str(num_bc))
 
     # Kopplung Temp Luft mit Temp Surface Knoten s
     his = 3.45
@@ -169,8 +195,8 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
     Q_DHW_LOAD_8760 = DHW_need_day_m2_8760_up[UserProfile_idx, :] * np.tile(Af, (8760, 1)).T + Q_DHW_losses
 
     Q_H_month_RC, Q_H_month_EB, Q_C_month_RC, Q_C_month_EB, T_op_0_hourly, T_op_10_hourly, T_op_HC_hourly, \
-    T_s_0_hourly, T_s_10_hourly, T_s_HC_hourly, T_air_0_hourly, T_air_10_hourly, T_air_HC_hourly, T_m_0_hourly, \
-    T_m_10_hourly, T_m_HC_hourly, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, T_Set_8760 = \
+        T_s_0_hourly, T_s_10_hourly, T_s_HC_hourly, T_air_0_hourly, T_air_10_hourly, T_air_HC_hourly, T_m_0_hourly, \
+        T_m_10_hourly, T_m_HC_hourly, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, T_Set_8760 = \
         create_matrix_before_month(num_bc)
     cum_hours = 0
     for month in range(12):
@@ -193,7 +219,7 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
         for day in range(days_this_month):
             Q_H_RC_day, Q_C_RC_day, Q_DHW_RC_day, Q_H_EB_day, Q_C_EB_day, Q_HC = create_matrix_after_day(num_bc)
             # time_day_vector represents the index for the hours of one day (eg: 24-48 for second day in year)
-            time_day_vector = np.arange(cum_hours + day * 24, cum_hours + (day+1) * 24)
+            time_day_vector = np.arange(cum_hours + day * 24, cum_hours + (day + 1) * 24)
 
             # outdoor temperature
             Te = T_e_clreg[np.ix_(climate_region_index, time_day_vector)]
@@ -202,11 +228,10 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
             # for the first day if the year the "prev_hour" has to be set manually:
             # if month == 0 and day == 0:
 
-
             # iterate through hours:
             for hour in range(24):
                 if hour == 0:
-                    prev_hour = 24
+                    prev_hour = 23
                 else:
                     prev_hour = hour - 1
 
@@ -230,5 +255,118 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
                 # solar gains through windows
                 Qsol[:, hour] = Awindows_rad_north * sol_rad_n + Awindows_rad_east_west * sol_rad_ea + \
                                 Awindows_rad_south * sol_rad_s
+
+                # Gains Air Note TODO werden Qloss_DHW als internal gains gesehen?
+                PHIia[:, hour] = 0.5 * (Qi + Qloss_DWH)  # Equ.C.1
+                PHIm[:, hour] = Am / Atot * (0.5 * (Qi + Qloss_DWH) + Qsol[:, hour])  # Equ.C.2
+                PHIst[:, hour] = (1 - Am / Atot - Htr_w / (hms * Atot)) * (
+                        0.5 * (Qi + Qloss_DWH) + Qsol[:, hour])  # Equ.C.3
+
+                # supply air temperature equal to outdoor temperature if no heat recovery system is considered
+                # TODO implement a some households that have heat recovery?
+                T_air_supply = 1 * Te[:, hour] + 0 * Tair_HC[:, prev_hour]
+
+                X_0[:, hour] = (PHIst[:, hour] + Htr_w * Te[:, hour] + Htr_1 *
+                                (((PHIia[:, hour] + PHIHC_nd[:, day * 24 + hour]) / Hve) + T_air_supply))
+                PHIm_tot_0[:, hour] = PHIm[:, hour] + Htr_em * Te[:, hour] + Htr_3 * X_0[:, hour] / Htr_2
+                Tm_0[:, hour] = (Tm_prev_hour * subVar1 + PHIm_tot_0[:, hour]) / subVar2
+                Tm = (Tm_0[:, hour] + Tm_prev_hour) / 2
+                Ts_0[:, hour] = (Htr_ms * Tm + PHIst[:, hour] + Htr_w * Te[:, hour] +
+                                 Htr_1 * (T_air_supply + (PHIia[:, hour] + PHIHC_nd[:, day * 24 + hour]) / Hve)) / \
+                                (Htr_ms + Htr_w + Htr_1)
+                Tair_0[:, hour] = (Htr_is * Ts_0[:, hour] + Hve * T_air_supply + PHIia[:, hour] +
+                                   PHIHC_nd[:, day * 24 + hour]) / (Htr_is + Hve)
+                Top_0[:, hour] = 0.3 * Tair_0[:, hour] + 0.7 * Ts_0[:, hour]
+
+                X_10[:, hour] = PHIst[:, hour] + Htr_w * Te[:, hour] + Htr_1 * (((PHIia[:, hour] +
+                                                                                  PHIHC_nd10[:,
+                                                                                  day * 24 + hour]) / Hve) + T_air_supply)  # Part of Equ.C.5
+                PHIm_tot_10[:, hour] = PHIm[:, hour] + Htr_em * Te[:, hour] + Htr_3 * X_10[:, hour] / Htr_2  # Equ.C.5
+                Tm_10[:, hour] = (Tm_prev_hour * subVar1 + PHIm_tot_10[:, hour]) / subVar2  # Equ.C.4
+                Tm = (Tm_10[:, hour] + Tm_prev_hour) / 2  # Equ.C.9
+                Ts_10[:, hour] = (Htr_ms * Tm + PHIst[:, hour] + Htr_w * Te[:, hour] + Htr_1 * (
+                        T_air_supply + (PHIia[:, hour] + PHIHC_nd10[:, (day - 1) * 24 + hour]) / Hve)) / (
+                                         Htr_ms + Htr_w + Htr_1)  # Equ.C.10
+                Tair_10[:, hour] = (Htr_is * Ts_10[:, hour] + Hve * T_air_supply + PHIia[:, hour] +
+                                    PHIHC_nd10[:, day * 24 + hour]) / (Htr_is + Hve)  # Equ.C.11
+                Top_10[:, hour] = 0.3 * Tair_10[:, hour] + 0.7 * Ts_10[:, hour]
+
+                # Heating and cooling needs:
+                Q_H_RC_day[:, hour] = np.maximum(0, PHIHC_nd10[:, day * 24 + hour] * (Tset_h - Tair_0[:, hour]) /
+                                                 (Tair_10[:, hour] - Tair_0[:, hour]))
+                Q_C_RC_day[:, hour] = np.maximum(0, PHIHC_nd10[:, day * 24 + hour] * (Tair_0[:, hour] - Tset_c) /
+                                                 (Tair_10[:, hour] - Tair_0[:, hour]))
+
+                # actual heating and cooling loads
+                Q_HC[:, hour] = (Q_H_RC_day[:, hour] + Q_H_RC_day[:, prev_hour]) / 2 - (Q_C_RC_day[:, hour] +
+                                                                                        Q_C_RC_day[:, prev_hour]) / 2
+                Q_HC[:, hour] = Q_H_RC_day[:, hour] - Q_C_RC_day[:, hour]
+
+                Q_HC[:, hour] = np.maximum(0, Q_H_RC_day[:, hour] - Q_C_RC_day[:, hour])
+                Q_HC[:, hour] = (Q_HC[:, hour] + Q_HC_prev_hour) / 2
+
+                X_HC[:, hour] = (PHIst[:, hour] + Htr_w * Te[:, hour] + Htr_1 *
+                                 (((PHIia[:, hour] + Q_HC[:, hour]) / Hve) + T_air_supply))
+                PHIm_tot_HC[:, hour] = PHIm[:, hour] + Htr_em * Te[:, hour] + Htr_3 * X_HC[:, hour] / Htr_2
+                Tm_HC[:, hour] = (Tm_prev_hour * subVar1 + PHIm_tot_HC[:, hour]) / subVar2
+                Tm = (Tm_HC[:, hour] + Tm_prev_hour) / 2
+                Ts_HC[:, hour] = (Htr_ms * Tm + PHIst[:, hour] + Htr_w * Te[:, hour] + Htr_1 * (
+                        T_air_supply + (PHIia[:, hour] + Q_HC[:, hour]) / Hve)) / (Htr_ms + Htr_w + Htr_1)
+                Tair_HC[:, hour] = (Htr_is * Tm_HC[:, hour] + Hve * T_air_supply + PHIia[:, hour] + Q_HC[:, hour]) / (
+                        Htr_is + Hve)
+                Top_HC[:, hour] = 0.3 * Tair_HC[:, hour] + 0.7 * Ts_HC[:, hour]
+
+                # heating and cooling needs, energy balance
+                Q_H_EB_day[:, hour] = (Htr_w + Hop + Hve) * np.maximum(0, (Tset_h - Te[:, hour]))  # *3.600
+                Q_C_EB_day[:, hour] = (Htr_w + Hop + Hve) * np.maximum(0, (Te[:, hour] - Tset_c))  # *3.600
+
+                Tm_prev_hour = Tm_HC[:, hour]
+                Q_HC_prev_hour = Q_HC[:, hour]
+
+                # END day 1
+            Q_H_LOAD_8760[:, time_day_vector] = Q_H_RC_day
+            Q_C_LOAD_8760[:, time_day_vector] = Q_C_RC_day
+            Q_H_LOAD_8760[:, time_day_vector] = np.maximum(0, Q_HC)
+            Q_C_LOAD_8760[:, time_day_vector] = np.maximum(0, - Q_HC)
+
+            T_op_HC_hourly[:, time_day_vector] = Top_HC
+            T_air_HC_hourly[:, time_day_vector] = Tair_HC
+            T_s_HC_hourly[:, time_day_vector] = Ts_HC
+            T_m_HC_hourly[:, time_day_vector] = Tm_HC
+
+            time_month_vector = np.arange(cum_hours,
+                                          cum_hours + num_hours)  # TODO checken ob derselbe vektor raus kommt
+
+            Q_H_RC = Q_H_RC + Q_H_RC_day / days_this_month
+            Q_C_RC = Q_C_RC + Q_C_RC_day / days_this_month
+
+            Q_H_EB = Q_H_EB + Q_H_EB_day / days_this_month
+            Q_C_EB = Q_C_EB + Q_C_EB_day / days_this_month
+
+            # calculate heat days
+            Top_0_mean = Top_0.mean(axis=1)
+            # TODO Andi fragen was dieser threshold bedeuted? (Bei mean temp über 26,28,30,32 +1 heat day? wird nicht gebraucht
+            # heat_day_treshold = np.arange(26, 33, 2)
+            # heat_days = np.zeros((num_bc, len(heat_day_treshold)))
+            # WIRD NICHT GEBRAUCHT! Top_month und Tair_month nur für plot zur überprüfung, heat days komplett unnötig!!!
+            # heat_days_idx = (Top_0_mean * ones(1, length(heat_day_treshold))) > (ones(num_bc, 1) * heat_day_treshold)
+            # heat_days(heat_days_idx) = heat_days(heat_days_idx) + 1
+            # Top_month(:, (day - 1) * 24 + 1: day * 24) = Top_0;
+            # Tair_month(:, (day - 1) * 24 + 1: day * 24) = Tair_0;
+
+            # END MONTH
+        # TODO warum /1000 ?
+        Q_H_month_RC[:, month] = Q_H_RC.sum(axis=1) / 1000 * DpM[month]
+        Q_H_month_EB[:, month] = (Q_H_EB - np.tile(Qi, (24, 1)).T).sum(axis=1) / 1000 * DpM[month]
+
+        Q_C_month_RC[:, month] = Q_C_RC.sum(axis=1) / 1000 * DpM[month]
+        Q_C_month_EB[:, month] = (Q_C_EB - np.tile(Qi, (24, 1)).T).sum(axis=1) / 1000 * DpM[month]
+
+        cum_hours = cum_hours + num_hours
+        # END YEAR
+
+    # save data to h5 file for fast accessability later:
+    save_to_hdf('outputdata/Building_load_curve_' + obs_data_file_name + '.h5')
+
 
     a = 1
