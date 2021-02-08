@@ -12,9 +12,11 @@ def read_h5(filename):
     print('reading hf file...')
     dict = {}
     hf = h5py.File(filename, "r")
+    # save all arrays from hf to dict as np.array:
     for key in hf.keys():
-        dict[key] = hf.get(key)
-        a=1
+        dict[key] = np.array(hf.get(key))
+    hf.close()
+    return dict
 
 def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, climdata_file_name):
     # TODO für testen:
