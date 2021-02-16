@@ -2,7 +2,8 @@ from pathlib import Path
 from Heatdemand_rc_model import Heatdemand_rc_model
 
 # definiere ob daten neu berechnet werden sollen oder schon berechnet wurden:
-load_data=False
+load_data = False
+print("load data is " + str(load_data) + '\n')
 
 # Einlesen der Daten:
 # base_results_path = Path('V:/projects/2020_RES_H/invert/output_20201111/AUT')
