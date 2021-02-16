@@ -6,18 +6,19 @@ from Create_set_temp_profile import CREATE_SET_TEMP_PROFILE
 from Create_dhw_energyneed_profile import CREATE_DHW_ENERGYDEMAND_PROFILE
 from Core_rc_model import core_rc_model
 import h5py
+from Simple_plots import *
 
 
 def read_h5(filename):
     print('reading hf file...')
-    dict = {}
+    dict_ = {}
     hf = h5py.File(filename, "r")
     # save all arrays from hf to dict as np.array:
     for key in hf.keys():
-        dict[key] = np.array(hf.get(key))
+        dict_[key] = np.array(hf.get(key))
     hf.close()
     print('done')
-    return dict
+    return dict_
 
 
 def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, climdata_file_name, load_data):
@@ -204,9 +205,14 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         else:
             # load the data from h5 file:
             filename = 'outputdata/' + 'Building_load_curve_' + obs_data_file_name + '.h5'
-            dict = read_h5(filename)
+            dict_ = read_h5(filename)
 
-
+        # create a dict for a simple plot:
+        dict2 = dict.fromkeys(["Q_C_LOAD_8760", "Q_DHW_LOAD_8760", "Q_H_LOAD_8760"], [])
+        for key in dict2:
+            dict2[key] = dict_[key]
+        # plot the Heating cooling and dhw loads
+        lineplot_plt(dict2)
 
         a = 1
 
