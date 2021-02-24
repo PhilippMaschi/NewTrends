@@ -18,4 +18,16 @@ def lineplot_plt(dict_):
     plt.legend()
     fig.show()
 
+def overview_core(dic1, dic2):
+    fig, (ax1, ax2) = plt.subplot(1, 2)
+    for key, value in dic1.items():
+        ax1.plot(np.arange(len(value[0])), value[0], label=str(key))
+    ax1.legend()
+
+    for key, value in dic2.items():
+        ax2.plot(np.arange(len(value[0])), value[0], label=str(key))
+    ax2.legend()
+
+    fig.show()
+
 
