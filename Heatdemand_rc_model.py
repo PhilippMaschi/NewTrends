@@ -1,11 +1,13 @@
 import numpy as np
 import pandas as pd
+import os
 from pathlib import Path
 from Create_out_temp_profile import Create_out_temp_profile
 from Create_set_temp_profile import CREATE_SET_TEMP_PROFILE
 from Create_dhw_energyneed_profile import CREATE_DHW_ENERGYDEMAND_PROFILE
 from Core_rc_model import core_rc_model
 import h5py
+import timeit
 from Simple_plots import *
 
 
@@ -19,6 +21,37 @@ def read_h5(filename):
     hf.close()
     print('done')
     return dict_
+
+def save_to_h5(outputpath, h5_name, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr,
+               climate_region_index, share_Circulation_DHW, T_e_HSKD_8760_clreg, Tset_heating_8760_up,
+               Tset_cooling_8760_up):
+    print('hf file is being saved...')
+    starttimeh5 = timeit.default_timer()
+    # check if folder exists:
+    try:
+        os.makedirs(outputpath)
+    except FileExistsError:
+        pass
+    # create file object, h5_name is path and name of file
+    hf = h5py.File(outputpath + h5_name, "w")
+    # files can be compressed with compression="lzf" and compression_opts=0-9 to save space, but then it reads slower
+    # renaming the variables from here on!
+    hf.create_dataset("Heating_load", data=Q_H_LOAD_8760)
+    hf.create_dataset("Cooling_load", data=Q_C_LOAD_8760)
+    hf.create_dataset("DHW_load", data=Q_DHW_LOAD_8760)
+
+    hf.create_dataset("Af", data=Af)
+    hf.create_dataset("bc_num_building_not_Zero_vctr", data=bc_num_building_not_Zero_vctr)
+    hf.create_dataset("climate_region_index", data=climate_region_index)
+
+    hf.create_dataset("share_Circulation_DHW", data=share_Circulation_DHW)
+    hf.create_dataset("T_outside", data=T_e_HSKD_8760_clreg)
+    hf.create_dataset("T_set_heating", data=Tset_heating_8760_up)
+    hf.create_dataset("T_set_cooling", data=Tset_cooling_8760_up)
+    # save data
+    hf.close()
+    print('saving hf completed')
+    print("Time for saving to h5: ", timeit.default_timer() - starttimeh5)
 
 
 def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, climdata_file_name, load_data):
@@ -46,7 +79,7 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
 
             # Wohngebäude mit je 6 Bauperioden (4 historisch, 5 Leer, 6 Neubau)
             # BCAT_1_3 = [1.0,0.5, 0.2, 0.2, 0.0, 1] *[1, 0.5, 0.3]
-            # TODO Andi fragen was es mit den BCAT matrizen auf sich hat
+            # TODO Andi fragen was es mit den BCAT matrizen auf sich hat ud was share_Circulation_DHW bedeuted!
             BCAT_4_8[0, -2:] = 0
 
             TGridmom = 75
@@ -91,6 +124,9 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         else:
             data_num_build_per_GE = data_num_build_per_GE.iloc[:, [0, col]]
             data_num_gfa_per_GE = data_num_gfa_per_GE.iloc[:, [0, col]]
+
+        # time loops:
+        starttime = timeit.default_timer()
 
         # Wohngebäude 1 bis 3
         # Bauperioden 1 bis 6
@@ -202,17 +238,36 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
                 core_rc_model(sol_rad, data_red, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
                           share_Circulation_DHW, T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up,
                           bc_num_building_not_Zero_vctr, obs_data_file_name)
-        else:
-            # load the data from h5 file:
-            filename = 'outputdata/' + 'Building_load_curve_' + obs_data_file_name + '.h5'
-            dict_ = read_h5(filename)
 
-        # create a dict for a simple plot:
-        dict2 = dict.fromkeys(["Q_C_LOAD_8760", "Q_DHW_LOAD_8760", "Q_H_LOAD_8760"], [])
-        for key in dict2:
-            dict2[key] = dict_[key]
-        # plot the Heating cooling and dhw loads
-        lineplot_plt(dict2)
+
+            # save data to h5 file for fast accessability later:
+            save_to_h5('outputdata/', 'Building_load_curve_' + obs_data_file_name + '.h5', Q_H_LOAD_8760, Q_C_LOAD_8760,
+                       Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index, share_Circulation_DHW,
+                       T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up)
+
+        # load the data from h5 file:
+        filename = 'outputdata/' + 'Building_load_curve_' + obs_data_file_name + '.h5'
+        dict_ = read_h5(filename)
+
+        # print time
+        print("Time for execution: ", timeit.default_timer() - starttime)
+
+        if load_data == True:
+            # create a dict for a simple plot if the data is loaded as dict:
+            dict2 = dict.fromkeys(["Cooling_load", "DHW_load", "Heating_load"], [])
+            for key in dict2:
+                dict2[key] = dict_[key]
+            # create dict for subplot with outside and set temperatures
+            dict3 = dict.fromkeys(["T_set_heating", "T_set_cooling", "T_outisde"], [])
+            for key in dic3:
+                dict3[key] = dict_[key]
+
+            # plot only the Heating cooling and dhw loads
+            lineplot_plt(dict2)
+
+            # plot heating cooling and DHW loads as well as temperature settings and outside temp:
+            overview_core(dict2, dict3)
+
 
         a = 1
 
