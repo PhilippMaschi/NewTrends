@@ -258,8 +258,8 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
             for key in dict2:
                 dict2[key] = dict_[key]
             # create dict for subplot with outside and set temperatures
-            dict3 = dict.fromkeys(["T_set_heating", "T_set_cooling", "T_outisde"], [])
-            for key in dic3:
+            dict3 = dict.fromkeys(["T_set_heating", "T_set_cooling", "T_outside"], [])
+            for key in dict3:
                 dict3[key] = dict_[key]
 
             # plot only the Heating cooling and dhw loads

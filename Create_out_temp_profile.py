@@ -10,13 +10,16 @@ def Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PAT
     M = scipy.io.loadmat(input_dir_constant + "dstr_hskd.mat")
 
     # monthly temperature per climate zone
+    # TODO Es gibt 2 Temperatur Profile, welches nehme ich? eines wird erstellt aus TEMP und eines ist gegeben mit te_obs
     temp_file = str(RN) + '___mean_temperatur_' + str(YEAR) + '.csv'
     TEMP = pd.read_csv(OUTPUT_PATH_TEMP / temp_file)
     TEMP = TEMP.set_index("month")
+    # import Solar radiation
     sol_rad_file = str(RN) + '__climate_data_solar_rad_' + str(YEAR) + '.csv'
     SOL_RAD = pd.read_csv(OUTPUT_PATH / sol_rad_file)
     num_clreg = len(SOL_RAD)
 
+    # dividing solar radiation into celestial directions:
     sol_rad_north_clreg = SOL_RAD.iloc[:, 1: 13]
     sol_rad_east_west_clreg = SOL_RAD.iloc[:, 13: 25]
     sol_rad_south_clreg = SOL_RAD.iloc[:, 25: 37]
@@ -42,7 +45,6 @@ def Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PAT
     Te_mean_month_clreg = TEMP.to_numpy()
 
     cum_hours = 0
-    # TODO von pandas auf numpy umsteigen weil schneller in schleifen...
     for month in np.arange(12): # achtung monat fängt bei 0 an!
         days_this_month = DpM[month]
         num_hours = 24 * days_this_month

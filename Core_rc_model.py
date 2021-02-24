@@ -1,30 +1,5 @@
 import numpy as np
-from pyomo.environ import *
-from pyomo.dae import *
 import h5py
-import os
-
-def save_to_h5(outputpath, h5_name, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr,
-               climate_region_index):
-    print('hf file is being saved...')
-    # check if folder exists:
-    try:
-        os.makedirs(outputpath)
-    except FileExistsError:
-        pass
-    # create file object, h5_name is path and name of file
-    hf = h5py.File(outputpath + h5_name, "w")
-    # files can be compressed with compression="lzf" and compression_opts=0-9 to save space, but then it reads slower
-    hf.create_dataset("Q_H_LOAD_8760", data=Q_H_LOAD_8760)
-    hf.create_dataset("Q_C_LOAD_8760", data=Q_C_LOAD_8760)
-    hf.create_dataset("Q_DHW_LOAD_8760", data=Q_DHW_LOAD_8760)
-
-    hf.create_dataset("Af", data=Af)
-    hf.create_dataset("bc_num_building_not_Zero_vctr", data=bc_num_building_not_Zero_vctr)
-    hf.create_dataset("climate_region_index", data=climate_region_index)
-    # save data
-    hf.close()
-    print('saving hf completed')
 
 
 def create_matrix_after_day(num_bc):
@@ -101,11 +76,10 @@ def create_matrix_before_month(num_bc):
 
     Q_H_LOAD_8760 = np.zeros((num_bc, 8760))
     Q_C_LOAD_8760 = np.zeros((num_bc, 8760))
-    Q_DHW_LOAD_8760 = np.zeros((num_bc, 8760))
     T_Set_8760 = np.zeros((num_bc, 8760))
     return Q_H_month_RC, Q_H_month_EB, Q_C_month_RC, Q_C_month_EB, T_op_0_hourly, T_op_10_hourly, T_op_HC_hourly, \
            T_s_0_hourly, T_s_10_hourly, T_s_HC_hourly, T_air_0_hourly, T_air_10_hourly, T_air_HC_hourly, T_m_0_hourly, \
-           T_m_10_hourly, T_m_HC_hourly, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, T_Set_8760
+           T_m_10_hourly, T_m_HC_hourly, Q_H_LOAD_8760, Q_C_LOAD_8760, T_Set_8760
 
 
 def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
@@ -207,7 +181,7 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
 
     # insert frames that will be needed later? matlab zeile 95-111
 
-    # DHW Profile: TODO warum 0.3?? vielleicht 13.2.2.1
+    # DHW Profile: TODO warum 0.3?? vielleicht 13.2.2.1; share_CirculationDHW = 0 (weichstätten) warum?
     DHW_losses_m2_8760_up = share_Circulation_DHW * DHW_loss_Circulation_040_day_m2_8760_up + 0.3 * \
                             DHW_need_day_m2_8760_up
     # DHW losses multiplied by Area are losses for respective Buildings:
@@ -218,7 +192,7 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
     # create empty numpy frames for the following calculations:
     Q_H_month_RC, Q_H_month_EB, Q_C_month_RC, Q_C_month_EB, T_op_0_hourly, T_op_10_hourly, T_op_HC_hourly, \
         T_s_0_hourly, T_s_10_hourly, T_s_HC_hourly, T_air_0_hourly, T_air_10_hourly, T_air_HC_hourly, T_m_0_hourly, \
-        T_m_10_hourly, T_m_HC_hourly, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, T_Set_8760 = \
+        T_m_10_hourly, T_m_HC_hourly, Q_H_LOAD_8760, Q_C_LOAD_8760, T_Set_8760 = \
         create_matrix_before_month(num_bc)
     cum_hours = 0
     # iterate through months:
@@ -404,8 +378,6 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
         cum_hours = cum_hours + num_hours
         # END YEAR
 
-    # save data to h5 file for fast accessability later:
-    save_to_h5('outputdata/', 'Building_load_curve_' + obs_data_file_name + '.h5', Q_H_LOAD_8760, Q_C_LOAD_8760,
-               Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index)
 
-    return  Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index
+
+    return Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index
