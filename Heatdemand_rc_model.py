@@ -55,6 +55,7 @@ def save_to_h5(outputpath, h5_name, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_876
 
 
 def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, climdata_file_name, load_data):
+    print("start heatdemand_rc_model")
     # TODO für testen:
     YEAR = 2050
 
@@ -252,21 +253,21 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
     # print time
     print("Time for execution: ", timeit.default_timer() - starttime)
 
-    if load_data == True:
-        # create a dict for a simple plot if the data is loaded as dict:
-        dict2 = dict.fromkeys(["Cooling_load", "DHW_load", "Heating_load"], [])
-        for key in dict2:
-            dict2[key] = dict_[key]
-        # create dict for subplot with outside and set temperatures
-        dict3 = dict.fromkeys(["T_set_heating", "T_set_cooling", "T_outside"], [])
-        for key in dict3:
-            dict3[key] = dict_[key]
 
-        # plot only the Heating cooling and dhw loads
-        lineplot_plt(dict2)
+    # create a dict for a simple plot if the data is loaded as dict:
+    dict2 = dict.fromkeys(["Cooling_load", "DHW_load", "Heating_load"], [])
+    for key in dict2:
+        dict2[key] = dict_[key]
+    # create dict for subplot with outside and set temperatures
+    dict3 = dict.fromkeys(["T_set_heating", "T_set_cooling", "T_outside"], [])
+    for key in dict3:
+        dict3[key] = dict_[key]
 
-        # plot heating cooling and DHW loads as well as temperature settings and outside temp:
-        overview_core(dict2, dict3)
+    # plot only the Heating cooling and dhw loads
+    lineplot_plt(dict2)
+
+    # plot heating cooling and DHW loads as well as temperature settings and outside temp:
+    overview_core(dict2, dict3)
 
 
     a = 1

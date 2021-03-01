@@ -90,8 +90,10 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
 
     # convert necessary variables to numpy for faster calculation:
     sol_rad = sol_rad.drop(columns=["climate_region_index"]).to_numpy()
-    climate_region_index = data.loc[:, "climate_region_index"].to_numpy().astype(int)
-    UserProfile_idx = data.loc[:, "user_profile"].to_numpy().astype(int)
+    # climate region index - 1 because python starts to count at zero:
+    climate_region_index = data.loc[:, "climate_region_index"].to_numpy().astype(int) - 1
+    # user Profile index -1 because python starts indexing at zero compared to matlab
+    UserProfile_idx = data.loc[:, "user_profile"].to_numpy().astype(int) - 1
     unique_climate_region_index = np.unique(climate_region_index).astype(int)
 
     sol_rad_north = np.empty((1, 12), float)
@@ -100,12 +102,12 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
     for climate_region in unique_climate_region_index:
         anzahl = len(np.where(climate_region_index == climate_region)[0])
         sol_rad_north = np.append(sol_rad_north,
-                                  np.tile(sol_rad[int(climate_region - 1), np.arange(12)], (anzahl, 1)),
+                                  np.tile(sol_rad[int(climate_region), np.arange(12)], (anzahl, 1)),
                                   axis=0)  # weil von 0 gezählt
         sol_rad_east_west = np.append(sol_rad_east_west,
-                                      np.tile(sol_rad[int(climate_region - 1), np.arange(12, 24)], (anzahl, 1)), axis=0)
+                                      np.tile(sol_rad[int(climate_region), np.arange(12, 24)], (anzahl, 1)), axis=0)
         sol_rad_south = np.append(sol_rad_south,
-                                  np.tile(sol_rad[int(climate_region - 1), np.arange(24, 36)], (anzahl, 1)), axis=0)
+                                  np.tile(sol_rad[int(climate_region), np.arange(24, 36)], (anzahl, 1)), axis=0)
 
     # delete first row in solar radiation as its just zeros
     sol_rad_north = np.delete(sol_rad_north, 0, axis=0)
