@@ -189,21 +189,11 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
 
         # load temperature data:
         temp_data = pd.read_excel(OUTPUT_PATH_TEMP / "Input_Weather2015_AT.xlsx", engine="openpyxl")
+        temp_8760 = temp_data.loc[:, "Temperature"].to_numpy()
+        # convert numpy array into matrix:
+        temp_8760 = np.tile(temp_8760, (len(data_red), 1))
 
-        HoursPerYear = len(obs_data)
-        # observed hourly temperature and load profile:
-        ds_hourly = pd.DataFrame({"te_obs": obs_data[1].values,
-                                  "load_obs": obs_data[2].values})
-
-        # Consider only relative Values for load profile:
-        ds_hourly.loc[:, "load_obs"] = ds_hourly.loc[:, "load_obs"] / ds_hourly.loc[:, "load_obs"].mean()
-
-        # TODO fragen ob bei te_obs in matlab nicht ein fehler passiert ist (Zeile 288)
-
-
-        # call create temp profile skript: Ergebnisse sind numpy frames!
-        T_e_8760_clreg, T_e_HSKD_8760_clreg = \
-            Create_out_temp_profile(input_dir_constant, OUTPUT_PATH_TEMP, RN, OUTPUT_PATH, YEAR, ds_hourly)
+        HoursPerYear = len(data_red)
 
         #  CREATE SET TEMPERATURE PROFILE
         Tset_heating_8760_up, Tset_cooling_8760_up = CREATE_SET_TEMP_PROFILE(RN, YEAR, OUTPUT_PATH)
