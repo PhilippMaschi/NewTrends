@@ -219,14 +219,14 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         # core rc model nach DIN EN ISO 13790:
         Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index =\
             core_rc_model(sol_rad, data_red, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
-                      share_Circulation_DHW, T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up,
+                      share_Circulation_DHW, temp_8760, Tset_heating_8760_up, Tset_cooling_8760_up,
                       bc_num_building_not_Zero_vctr)
 
 
         # save data to h5 file for fast accessability later:
         save_to_h5('outputdata/', 'Building_load_curve_' + output_file_name + '.h5', Q_H_LOAD_8760, Q_C_LOAD_8760,
                    Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index, share_Circulation_DHW,
-                   T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up)
+                   temp_8760, Tset_heating_8760_up, Tset_cooling_8760_up)
 
     # load the data from h5 file:
     filename = 'outputdata/' + 'Building_load_curve_' + output_file_name + '.h5'

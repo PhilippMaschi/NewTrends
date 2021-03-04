@@ -83,10 +83,8 @@ def create_matrix_before_month(num_bc):
 
 
 def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
-                  share_Circulation_DHW, T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up,
-                  bc_num_building_not_Zero_vctr, obs_data_file_name):
-    # umbenennung der variablen zum vergleich mit matlab und in shape (..., 8760)
-    T_e_clreg = T_e_HSKD_8760_clreg
+                  share_Circulation_DHW, temp_8760, Tset_heating_8760_up, Tset_cooling_8760_up,
+                  bc_num_building_not_Zero_vctr):
 
     # convert necessary variables to numpy for faster calculation:
     sol_rad = sol_rad.drop(columns=["climate_region_index"]).to_numpy()
@@ -204,7 +202,7 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
 
         if month == 0:
             # Estimate starting value of first temperature sets
-            Tm_prev_hour = (5 * T_e_clreg[climate_region_index, 0] + 1 * 20) / 6
+            Tm_prev_hour = (5 * temp_8760[climate_region_index, 0] + 1 * 20) / 6
             Q_HC_prev_hour = 10
 
         #  Heating and Cooling Heat flow rate (Thermal power) need
@@ -224,7 +222,7 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
             time_day_vector = np.arange(cum_hours + day * 24, cum_hours + (day + 1) * 24)
 
             # outdoor temperature
-            Te = T_e_clreg[np.ix_(climate_region_index, time_day_vector)]
+            Te = temp_8760[np.ix_(climate_region_index, time_day_vector)]
 
             # TODO maybe iterate over the first day twice??
             # for the first day if the year the "prev_hour" has to be set manually:
