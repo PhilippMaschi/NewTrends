@@ -1,4 +1,4 @@
-name: NewTrends
+name: base
 channels:
   - anaconda
   - conda-forge
@@ -237,7 +237,7 @@ dependencies:
   - zeromq=4.3.2
   - zipp=3.1.0
   - zlib=1.2.11
-  - zstd=1.4.5    
-
-# open conda prompt here and type the following comand:
-#  conda env create -f environment.yml
+  - zstd=1.4.5
+  - pip:
+    - plotly==4.10.0
+prefix: C:\Users\mascherbauer\anaconda3
