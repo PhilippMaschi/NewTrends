@@ -54,7 +54,7 @@ def save_to_h5(outputpath, h5_name, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_876
     print("Time for saving to h5: ", timeit.default_timer() - starttimeh5)
 
 
-def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, climdata_file_name, load_data):
+def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, load_data):
     print("start heatdemand_rc_model")
     # TODO für testen:
     YEAR = 2050
@@ -72,7 +72,7 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
     #if k == 1:
     # Weichstätten:
     nominal_gridloss_factor = 0.16
-    region_obs_data_file_name = "Weichstaetten"
+    region_obs_data_file_name = "Austria"
     t_movavg_DHW = 2
     t_movavg_SH = 3
     share_Circulation_DHW = 0
@@ -87,8 +87,8 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
     TGridmin = 75
     scale_DHW = 1
 
-    # obs_data_file_name combines region and climate data file names
-    obs_data_file_name = region_obs_data_file_name + '-' + climdata_file_name
+    # output_file_name combines region and climate data file names
+    output_file_name = region_obs_data_file_name + "_" + str(YEAR)
 
     # load building stock data exportet by invert run:
     datei = str(RN) + "__dynamic_calc_data_bc_" + str(YEAR) + ".npz"
@@ -187,8 +187,8 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         data = data.set_index("bc_index")
         data_red = data.loc[bc_idx_not_Zero.values, :]
 
-        # load observed Grid Data:
-        obs_data = pd.read_csv(input_dir_constant + climdata_file_name + ".csv", header=None)
+        # load temperature data:
+        temp_data = pd.read_excel(OUTPUT_PATH_TEMP / "Input_Weather2015_AT.xlsx", engine="openpyxl")
 
         HoursPerYear = len(obs_data)
         # observed hourly temperature and load profile:
@@ -199,15 +199,7 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         ds_hourly.loc[:, "load_obs"] = ds_hourly.loc[:, "load_obs"] / ds_hourly.loc[:, "load_obs"].mean()
 
         # TODO fragen ob bei te_obs in matlab nicht ein fehler passiert ist (Zeile 288)
-        # data reshaped daily:
-        ds_daily = pd.DataFrame({"te_obs":
-                                     ds_hourly["te_obs"].values.reshape((24, int(len(ds_hourly) / 24))).mean(axis=0),
-                                 "load_obs":
-                                     ds_hourly["load_obs"].values.reshape((24, int(len(ds_hourly) / 24))).sum(axis=0)})
 
-        # data annually:
-        ds_annually = pd.DataFrame({"load_obs": obs_data.loc[:, 2].sum(),
-                                    "te_obs": ds_hourly.loc[:, "te_obs"].mean()}, index=[0])
 
         # call create temp profile skript: Ergebnisse sind numpy frames!
         T_e_8760_clreg, T_e_HSKD_8760_clreg = \
@@ -238,16 +230,16 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index =\
             core_rc_model(sol_rad, data_red, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
                       share_Circulation_DHW, T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up,
-                      bc_num_building_not_Zero_vctr, obs_data_file_name)
+                      bc_num_building_not_Zero_vctr)
 
 
         # save data to h5 file for fast accessability later:
-        save_to_h5('outputdata/', 'Building_load_curve_' + obs_data_file_name + '.h5', Q_H_LOAD_8760, Q_C_LOAD_8760,
+        save_to_h5('outputdata/', 'Building_load_curve_' + output_file_name + '.h5', Q_H_LOAD_8760, Q_C_LOAD_8760,
                    Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index, share_Circulation_DHW,
                    T_e_HSKD_8760_clreg, Tset_heating_8760_up, Tset_cooling_8760_up)
 
     # load the data from h5 file:
-    filename = 'outputdata/' + 'Building_load_curve_' + obs_data_file_name + '.h5'
+    filename = 'outputdata/' + 'Building_load_curve_' + output_file_name + '.h5'
     dict_ = read_h5(filename)
 
     # print time
