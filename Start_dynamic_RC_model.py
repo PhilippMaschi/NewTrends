@@ -32,7 +32,7 @@ for scn in scenariolist:
     print("temperatures path exists: " + str(results_path_temperatures.exists()))
     print("FWKWK path exists: " + str(results_path_FWKWK_data.exists()))
 
-    year_vektor = [start_year, end_year]
+    year_vektor = [start_year]#, end_year]
 
     for year in year_vektor:
         Heatdemand_rc_model(results_path_rcm, results_path_FWKWK_data, results_path_temperatures,

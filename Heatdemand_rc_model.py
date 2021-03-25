@@ -224,12 +224,12 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
 
 
         # save data to h5 file for fast accessability later:
-        save_to_h5('outputdata/', 'Building_load_curve_' + output_file_name + '.h5', Q_H_LOAD_8760, Q_C_LOAD_8760,
+        save_to_h5('outputdata/', 'Building_load_curve_' + output_file_name + '.hdf5', Q_H_LOAD_8760, Q_C_LOAD_8760,
                    Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index, share_Circulation_DHW,
                    temp_8760, Tset_heating_8760_up, Tset_cooling_8760_up)
 
     # load the data from h5 file:
-    filename = 'outputdata/' + 'Building_load_curve_' + output_file_name + '.h5'
+    filename = 'outputdata/' + 'Building_load_curve_' + output_file_name + '.hdf5'
     dict_ = read_h5(filename)
 
     # print time
