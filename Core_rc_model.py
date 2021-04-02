@@ -1,7 +1,8 @@
 import numpy as np
 import h5py
+import timeit
 
-
+# TODO make it in NUMBA
 def create_matrix_after_day(num_bc):
     Q_H_RC_day = np.zeros((num_bc, 24))
     Q_C_RC_day = np.zeros((num_bc, 24))
@@ -82,10 +83,21 @@ def create_matrix_before_month(num_bc):
            T_m_10_hourly, T_m_HC_hourly, Q_H_LOAD_8760, Q_C_LOAD_8760, T_Set_8760
 
 
+# This calculation is done after DIN EN ISO 13790:2008.
+# input data is either provided as a single value for each building or as an 8760 array for every hour of the year:
+# The function needs the solar radiation, DHW need per day, the outside temperature profile, the indoor set temperature
+# for heating and cooling and the data for each building. The solar radiation is a (x, 36) array, where x stands for the
+# number of regions for which solar radiation is provided. Each building has a "climate region index" which is between 0
+# and x. The first 12 columns of the solar radiation represent the solar radiation from north for each month. Columns 12
+# to 23 represent the radiation from east and west and columns 24 to 35 are the southern radiation. The "data" is a
+# pandas matrix which contains all relevant building information like climate region index, Floor area, transmission
+# coefficient, thermal mass, effective window area in celestial directions and the "user profile". The user profile is
+# the index with a user is assigned to each building. The user profile contains  indoor set temperatures and times when
+# the building is used.
 def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
-                  share_Circulation_DHW, temp_8760, Tset_heating_8760_up, Tset_cooling_8760_up,
-                  bc_num_building_not_Zero_vctr):
+                  share_Circulation_DHW, temp_8760, Tset_heating_8760_up, Tset_cooling_8760_up):
 
+    starttime_core = timeit.default_timer()
     # convert necessary variables to numpy for faster calculation:
     sol_rad = sol_rad.drop(columns=["climate_region_index"]).to_numpy()
     # climate region index - 1 because python starts to count at zero:
@@ -173,8 +185,8 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
 
     # kopplung zwischen Masse und  zentralen Knoten s (surface)
     hms = 9.1  # W / m2K from Equ.C.3 (from 12.2.2)
-    Htr_ms = hms * Am # from 12.2.2 Equ. (64)
-    Htr_em = 1 / (1 / Hop - 1 / Htr_ms) # from 12.2.2 Equ. (63)
+    Htr_ms = hms * Am  # from 12.2.2 Equ. (64)
+    Htr_em = 1 / (1 / Hop - 1 / Htr_ms)  # from 12.2.2 Equ. (63)
     Htr_3 = 1 / (1 / Htr_2 + 1 / Htr_ms)  # Equ.C.8
     subVar1 = Cm / 3600 - 0.5 * (Htr_3 + Htr_em)  # Part of Equ.C.4
     subVar2 = Cm / 3600 + 0.5 * (Htr_3 + Htr_em)  # Part of Equ.C.4
@@ -202,7 +214,7 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
 
         if month == 0:
             # Estimate starting value of first temperature sets
-            Tm_prev_hour = (5 * temp_8760[climate_region_index, 0] + 1 * 20) / 6
+            Tm_prev_hour = (5 * temp_8760[:, 0] + 1 * 20) / 6
             Q_HC_prev_hour = 10
 
         #  Heating and Cooling Heat flow rate (Thermal power) need
@@ -222,7 +234,7 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
             time_day_vector = np.arange(cum_hours + day * 24, cum_hours + (day + 1) * 24)
 
             # outdoor temperature
-            Te = temp_8760[np.ix_(climate_region_index, time_day_vector)]
+            Te = temp_8760[: time_day_vector]
 
             # TODO maybe iterate over the first day twice??
             # for the first day if the year the "prev_hour" has to be set manually:
@@ -242,7 +254,7 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
                 sol_rad_s = sol_rad_norm[hour] * sol_rad_south[:, month] * 24
 
                 # calculate energy needs:
-                # get desired Heating and Cooling Set Point Temperature
+                # geTet desired Heating and Cooling Set Point Temperature
                 Tset_h = Tset_heating_8760_up[UserProfile_idx, cum_hours + day * 24 + hour]
 
                 # TODO vielleicht User Profile Einbauen??
@@ -271,7 +283,7 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
                 # X_0 ist variable um Gleichung C.5 auf zu teilen (große Klammer)
                 X_0[:, hour] = (PHIst[:, hour] + Htr_w * Te[:, hour] + Htr_1 *
                                 (((PHIia[:, hour] + PHIHC_nd[:, day * 24 + hour]) / Hve) + T_air_supply))
-                PHIm_tot_0[:, hour] = PHIm[:, hour] + Htr_em * Te[:, hour] + Htr_3 * X_0[:, hour] / Htr_2 # Equ. C.5
+                PHIm_tot_0[:, hour] = PHIm[:, hour] + Htr_em * Te[:, hour] + Htr_3 * X_0[:, hour] / Htr_2  # Equ. C.5
 
                 # Berechnung der operativen Temperatur: Kapitel C.3
                 Tm_0[:, hour] = (Tm_prev_hour * subVar1 + PHIm_tot_0[:, hour]) / subVar2  # Equ. C.4
@@ -347,8 +359,8 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
             T_s_HC_hourly[:, time_day_vector] = Ts_HC
             T_m_HC_hourly[:, time_day_vector] = Tm_HC
 
-            time_month_vector = np.arange(cum_hours,
-                                          cum_hours + num_hours)  # TODO checken ob derselbe vektor raus kommt
+            time_month_vector = np.arange(cum_hours, cum_hours + num_hours)
+
             # aufaddieren der Heizleistung auf ein monat TODO warum tageswert/monatstage ? wird ja in schleife gemacht
             Q_H_RC = Q_H_RC + Q_H_RC_day / days_this_month
             Q_C_RC = Q_C_RC + Q_C_RC_day / days_this_month
@@ -377,7 +389,8 @@ def core_rc_model(sol_rad, data, DHW_need_day_m2_8760_up, DHW_loss_Circulation_0
 
         cum_hours = cum_hours + num_hours
         # END YEAR
+        print("Time for core calculation: ", timeit.default_timer() - starttime_core)
 
 
 
-    return Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index
+    return Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, climate_region_index
