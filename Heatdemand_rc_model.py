@@ -22,9 +22,11 @@ def read_h5(filename):
     print('done')
     return dict_
 
+
 def save_to_h5(outputpath, h5_name, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr,
                climate_region_index, share_Circulation_DHW, T_e_HSKD_8760_clreg, Tset_heating_8760_up,
                Tset_cooling_8760_up):
+
     print('hf file is being saved...')
     starttimeh5 = timeit.default_timer()
     # check if folder exists:
@@ -33,7 +35,7 @@ def save_to_h5(outputpath, h5_name, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_876
     except FileExistsError:
         pass
     # create file object, h5_name is path and name of file
-    hf = h5py.File(outputpath + h5_name, "w")
+    hf = h5py.File(outputpath / h5_name, "w")
     # files can be compressed with compression="lzf" and compression_opts=0-9 to save space, but then it reads slower
     # renaming the variables from here on!
     hf.create_dataset("Heating_load", data=Q_H_LOAD_8760)
@@ -54,6 +56,105 @@ def save_to_h5(outputpath, h5_name, Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_876
     print("Time for saving to h5: ", timeit.default_timer() - starttimeh5)
 
 
+# This calculation is done after DIN EN ISO 13790:2008.
+# input data is either provided as a single value for each building or as an 8760 array for every hour of the year:
+# The function needs the solar radiation, DHW need per day, the outside temperature profile, the indoor set temperature
+# for heating and cooling and the data for each building. The solar radiation is a (x, 36) array, where x stands for the
+# number of regions for which solar radiation is provided. Each building has a "climate region index" which is between 0
+# and x. The first 12 columns of the solar radiation represent the solar radiation from north for each month. Columns 12
+# to 23 represent the radiation from east and west and columns 24 to 35 are the southern radiation. The "data" is a
+# pandas matrix which contains all relevant building information like climate region index, Floor area, transmission
+# coefficient, thermal mass, effective window area in celestial directions and the "user profile". The user profile is
+# the index with a user is assigned to each building. The user profile contains  indoor set temperatures and times when
+# the building is used.
+def prepare_core_input_data(sol_rad, data):
+    # function converts all neccesary input data to numpy arrays so loops can be accelerated with numba:
+    sol_rad = sol_rad.drop(columns=["climate_region_index"]).to_numpy()
+    # climate region index - 1 because python starts to count at zero:
+    climate_region_index = data.loc[:, "climate_region_index"].to_numpy().astype(int) - 1
+    # user Profile index -1 because python starts indexing at zero compared to matlab
+    UserProfile_idx = data.loc[:, "user_profile"].to_numpy().astype(int) - 1
+    unique_climate_region_index = np.unique(climate_region_index).astype(int)
+
+    sol_rad_north = np.empty((1, 12), float)
+    sol_rad_east_west = np.empty((1, 12))
+    sol_rad_south = np.empty((1, 12))
+    for climate_region in unique_climate_region_index:
+        anzahl = len(np.where(climate_region_index == climate_region)[0])
+        sol_rad_north = np.append(sol_rad_north,
+                                  np.tile(sol_rad[int(climate_region), np.arange(12)], (anzahl, 1)),
+                                  axis=0)  # weil von 0 gezählt
+        sol_rad_east_west = np.append(sol_rad_east_west,
+                                      np.tile(sol_rad[int(climate_region), np.arange(12, 24)], (anzahl, 1)), axis=0)
+        sol_rad_south = np.append(sol_rad_south,
+                                  np.tile(sol_rad[int(climate_region), np.arange(24, 36)], (anzahl, 1)), axis=0)
+
+    # delete first row in solar radiation as its just zeros
+    sol_rad_north = np.delete(sol_rad_north, 0, axis=0)
+    sol_rad_east_west = np.delete(sol_rad_east_west, 0, axis=0)
+    sol_rad_south = np.delete(sol_rad_south, 0, axis=0)
+
+    # konditionierte Nutzfläche
+    Af = data.loc[:, "Af"].to_numpy()
+    # Oberflächeninhalt aller Flächen, die zur Gebäudezone weisen
+    Atot = 4.5 * Af  # 7.2.2.2
+    # Airtransfercoefficient
+    Hve = data.loc[:, "Hve"].to_numpy()
+    # Transmissioncoefficient wall
+    Htr_w = data.loc[:, "Htr_w"].to_numpy()
+    # Transmissioncoefficient opake Bauteile
+    Hop = data.loc[:, "Hop"].to_numpy()
+    # Speicherkapazität J/K
+    Cm = data.loc[:, "CM_factor"].to_numpy() * Af
+    # wirksame Massenbezogene Fläche [m^2]
+    Am = data.loc[:, "Am_factor"].to_numpy() * Af
+    # internal gains
+    Qi = data.loc[:, "spec_int_gains_cool_watt"].to_numpy() * Af
+    HWB_norm = data.loc[:, "hwb_norm"].to_numpy()
+
+    # window areas in celestial directions
+    Awindows_rad_east_west = data.loc[:, "average_effective_area_wind_west_east_red_cool"].to_numpy()
+    Awindows_rad_south = data.loc[:, "average_effective_area_wind_south_red_cool"].to_numpy()
+    Awindows_rad_north = data.loc[:, "average_effective_area_wind_north_red_cool"].to_numpy()
+
+    # Days per Month
+    DpM = np.array([31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31])
+    # hours per day
+    h = np.arange(1, 25)
+    # sol_hx = min(14, max(0, h + 0.5 - 6.5))
+    # Verteilung der Sonneneinstrahlung auf die einzelnen Stunden mit fixem Profil:
+    # Minimalwert = 0 und Maximalwert = 14
+    sol_hx = []
+    for i in h:
+        if h[i - 1] + 0.5 - 6.5 < 0:
+            sol_hx.append(0)
+        elif h[i - 1] + 0.5 - 6.5 > 14:
+            sol_hx.append(14)
+        else:
+            sol_hx.append(h[i - 1] + 0.5 - 6.5)
+
+    # sol_rad_norm = max(0, np.sin(3.1415 * sol_hx / 13)) / 8.2360
+    # Sinusprofil für die Sonneneinstrahlung:
+    sol_rad_norm = []
+    for i in sol_hx:
+        if np.sin(3.1415 * i / 13) / 8.2360 < 0:
+            sol_rad_norm.append(0)
+        else:
+            sol_rad_norm.append(np.sin(3.1415 * i / 13) / 8.2360)
+
+    sol_rad_norm = np.array(sol_rad_norm)
+    Af = np.tile(Af, (8760, 1)).T
+    # Number of building classes:
+    num_bc = len(Qi)
+    print("Number of building classes: " + str(num_bc))
+    daylist = np.zeros((num_bc, 24))
+    monthlist = np.zeros((num_bc, 12))
+    yearlist = np.zeros((num_bc, 8760))
+    return sol_rad_north, sol_rad_south, sol_rad_east_west, sol_rad_norm, Af, Atot, Hve, Htr_w, Hop, Cm, Am, Qi, \
+           Awindows_rad_east_west, Awindows_rad_north, Awindows_rad_south, DpM, UserProfile_idx, num_bc, \
+           climate_region_index, daylist, monthlist, yearlist
+
+
 def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN, YEAR, load_data):
     print("start heatdemand_rc_model")
     # TODO für testen:
@@ -67,9 +168,9 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
     NUM_GFA_AFTER_BCAT_1_3 = np.ones((6, 3))
     NUM_GFA_AFTER_BCAT_4_8 = np.ones((1, 5))
 
-    #for k in range(1, 7): weeggeben weil nur relevant für ein spezifisches projekt
+    # for k in range(1, 7): weeggeben weil nur relevant für ein spezifisches projekt
     # TODO diese if abfragen in funktion ändern weil blöd für andere länder
-    #if k == 1:
+    # if k == 1:
     # Weichstätten:
     nominal_gridloss_factor = 0.16
     region_obs_data_file_name = "Austria"
@@ -164,7 +265,7 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         print("WG")
         for i in range(1, 4):
             print("WG type " + str(i))
-            for j in range(1, 7):  # Baukategorien
+            for j in range(1, 7):  # Buildingcategories
                 idx = Bcat_per_BC.loc[(Bcat_per_BC["bcat_map"] == i) &
                                       (Bcat_per_BC["constrp_map"] == j), :].index
                 NUM_GFA_AFTER_BCAT_1_3[j - 1, i - 1] = bc_gfa[idx].sum()
@@ -198,12 +299,6 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         #  CREATE SET TEMPERATURE PROFILE
         Tset_heating_8760_up, Tset_cooling_8760_up = CREATE_SET_TEMP_PROFILE(RN, YEAR, OUTPUT_PATH)
 
-        # TODO das macht überhaupt keinen Sinn (T_e_HSKD_8760_clreg) (komm später zurück warum das gebraucht wird.
-        # TODO eventuell auch auf numpy array umstellen (nur mit welchen column names??)
-        # ds_hourly = pd.concat([ds_hourly, pd.DataFrame(T_e_HSKD_8760_clreg), pd.DataFrame(Tset_heating_8760_up),
-        #                        pd.DataFrame(Tset_cooling_8760_up)], axis=1,
-        #                       keys=["orig", "T_e_clreg", "Tset_heating_8760_up", "Tset_cooling_8760_up"])
-
         # CREATE DHW PROFILE
         DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up = \
             CREATE_DHW_ENERGYDEMAND_PROFILE(RN, YEAR, OUTPUT_PATH)
@@ -216,17 +311,28 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
         datei = RN + '__climate_data_solar_rad_' + str(YEAR) + ".csv"
         sol_rad = pd.read_csv(OUTPUT_PATH / datei)
 
-        # core rc model nach DIN EN ISO 13790:
-        Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index =\
-            core_rc_model(sol_rad, data_red, DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
-                      share_Circulation_DHW, temp_8760, Tset_heating_8760_up, Tset_cooling_8760_up,
-                      bc_num_building_not_Zero_vctr)
+        # inputdata for core is converted to numpy arrays:
+        sol_rad_north, sol_rad_south, sol_rad_east_west, sol_rad_norm, Af, Atot, Hve, Htr_w, Hop, Cm, Am, Qi, \
+        Awindows_rad_east_west, Awindows_rad_north, Awindows_rad_south, DpM, UserProfile_idx, num_bc, \
+        climate_region_index, daylist, monthlist, yearlist = prepare_core_input_data(sol_rad, data_red)
 
+        # core rc model after DIN EN ISO 13790: (only takes numpy arrays)
+        starttime_core = timeit.default_timer()
+        Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af = \
+            core_rc_model(DHW_need_day_m2_8760_up, DHW_loss_Circulation_040_day_m2_8760_up,
+                          share_Circulation_DHW, temp_8760, Tset_heating_8760_up, Tset_cooling_8760_up, sol_rad_north,
+                          sol_rad_south, sol_rad_east_west, sol_rad_norm, Af, Atot, Hve, Htr_w, Hop, Cm, Am, Qi,
+                          Awindows_rad_east_west, Awindows_rad_north, Awindows_rad_south, DpM, UserProfile_idx, num_bc,
+                          daylist, monthlist, yearlist)
+        print("Time for core calculation: ", timeit.default_timer() - starttime_core)
 
         # save data to h5 file for fast accessability later:
-        save_to_h5('outputdata/', 'Building_load_curve_' + output_file_name + '.hdf5', Q_H_LOAD_8760, Q_C_LOAD_8760,
-                   Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr, climate_region_index, share_Circulation_DHW,
-                   temp_8760, Tset_heating_8760_up, Tset_cooling_8760_up)
+        saving_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "outputdata")
+        saving_path = Path(saving_path)
+        saving_name = 'Building_load_curve_' + output_file_name + '.hdf5'
+        save_to_h5(saving_path, saving_name,
+                   Q_H_LOAD_8760, Q_C_LOAD_8760, Q_DHW_LOAD_8760, Af, bc_num_building_not_Zero_vctr,
+                   climate_region_index, share_Circulation_DHW, temp_8760, Tset_heating_8760_up, Tset_cooling_8760_up)
 
     # load the data from h5 file:
     filename = 'outputdata/' + 'Building_load_curve_' + output_file_name + '.hdf5'
@@ -234,7 +340,6 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
 
     # print time
     print("Time for execution: ", timeit.default_timer() - starttime)
-
 
     # create a dict for a simple plot if the data is loaded as dict:
     dict2 = dict.fromkeys(["Cooling_load", "DHW_load", "Heating_load"], [])
@@ -251,6 +356,4 @@ def Heatdemand_rc_model(OUTPUT_PATH, OUTPUT_PATH_NUM_BUILD, OUTPUT_PATH_TEMP, RN
     # plot heating cooling and DHW loads as well as temperature settings and outside temp:
     overview_core(dict2, dict3)
 
-
     a = 1
-
