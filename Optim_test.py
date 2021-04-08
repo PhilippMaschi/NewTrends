@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 # input into the tank Q_e = ??? (variable to be determined)
 # price for buying energy every hour p = [1, 6, 8, 8, 2] [price units / kWh]
 # Goal: Minimize operation cost of hot water tank!
-# Q = Q_(-1) + Q_e - Q_v - Q_a   Q_(-1) is the energy of the timestep bevore in the tank (T_0 = 80°C)
+# Q = Q_(-1) + Q_e - Q_v - Q_a   Q_(-1) is the energy of the timestep before in the tank (T_0 = 50°C)
 # initial condition: Q_0 = m*cp*(80-20) = 70 kWh
 # max Temperature in the tank T_max = 100°C --> Q_max = 93.3 kWh
 
@@ -58,7 +58,7 @@ def Zusammenhang(m, t):
     if t == 1:
         return m.T_innen[t] == 50
     else:
-        return m.T_innen[t] == m.T_innen[t-1] - m.Q_a[t]/1000/4.2*3600 + m.Q_e[t]/1000/4.2*3600
+        return m.T_innen[t] == m.T_innen[t-1] - m.Q_a[t]/1000/4.2*3600 + m.Q_e[t]/1000/4.2*3600 - 0.003*(m.T_innen[t]-m.T_a[t])
 m.zusammenhang = pyo.Constraint(m.t, rule=Zusammenhang)
 
 
@@ -69,6 +69,7 @@ m.max_power = pyo.Constraint(m.t, rule=max_power)
 def min_power(m, t):
     return m.Q_e[t] >= 0
 m.min_power = pyo.Constraint(m.t, rule=min_power)
+
 
 instance = m.create_instance(report_timing=True)
 opt = pyo.SolverFactory("gurobi")
@@ -84,7 +85,7 @@ Q_e = [instance.Q_e[t]() for t in m.t]
 price = [var2[i] for i in range(1, 7)]
 Q_a = [var[i] for i in range(1, 7)]
 # indoor temperature is constant 20°C
-Q = [4.2 * 1000 /3600 * (instance.T_innen[t]()-20) for t in m.t]
+Q = [4.2 * 1000 / 3600 * (instance.T_innen[t]()-20) for t in m.t]
 cost = [list(price)[i] * Q_e[i] for i in range(6)]
 total_cost = sum(cost)
 
