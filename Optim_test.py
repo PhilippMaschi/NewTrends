@@ -24,17 +24,23 @@ def create_dict(liste):
          dictionary[index] = value
     return dictionary
 
-#var = {1: 20, 2: 25, 3: 15, 4: 12, 5: 25, 6: 20}  # Q_a
-var2 = create_dict([1, 6, 8, 8, 2, 1])  # price
-ta = create_dict([20, 20, 20, 20, 20, 20])  # constant surrounding temp
-tout = create_dict([5, 4, 0, -1, -2, -2])  # outside temperature
-
+# fixed starting values:
+tank_starting_temp = 50
+indoor_starting_temp = 22
 # U-Value
 U = 0.2  # W/m2K
 # heat capacity room
 C_h = 2000  # J/K
 # useful area
 Am = 425  # m2
+
+#var = {1: 20, 2: 25, 3: 15, 4: 12, 5: 25, 6: 20}  # Q_a
+var2 = create_dict([1, 6, 8, 8, 2, 1])  # price
+ta = create_dict([20, 20, 20, 20, 20, 20])  # constant surrounding temp
+tout = create_dict([5, 4, 0, -1, -2, -2])  # outside temperature
+#Q_loss = create_dict([4, 3, 5, 3.2, 3, 2])  # Losses of the building
+
+
 
 # model
 m = pyo.AbstractModel()
@@ -79,21 +85,23 @@ m.minimum_temperature_raum = pyo.Constraint(m.t, rule=minimum_temperature_room)
 
 def room_temperature(m, t):
     if t == 1:
-        return m.T_room[t] == 21 - U * Am / C_h * (m.T_room[t] - m.T_out[t]) + m.Q_a[t] / C_h
+        return m.T_room[t] == indoor_starting_temp - U * Am / C_h * (m.T_room[t] - m.T_out[t]) + m.Q_a[t] / C_h
     else:
         return m.T_room[t] == m.T_room[t - 1] - U * Am / C_h * (m.T_room[t] - m.T_out[t]) + m.Q_a[t] / C_h
 m.room_temperature = pyo.Constraint(m.t, rule=room_temperature)
 
 def tank_temperatur(m, t):
     if t == 1:
-        return m.T_tank[t] == 50 - m.Q_a[t] / 1000 / 4.2 * 3600 + m.Q_e[t] / 1000 / 4.2 * 3600 - 0.003 * (50 - m.T_a[t])
+        return m.T_tank[t] == tank_starting_temp - m.Q_a[t] / 1000 / 4.2 * 3600 + m.Q_e[t] / 1000 / 4.2 * 3600 - 0.003 \
+                                * (tank_starting_temp - m.T_a[t])
     else:
-        return m.T_tank[t] == m.T_tank[t - 1] - m.Q_a[t] / 1000 / 4.2 * 3600 + m.Q_e[t] / 1000 / 4.2 * 3600 - 0.003 * (m.T_tank[t] - m.T_a[t])
+        return m.T_tank[t] == m.T_tank[t - 1] - m.Q_a[t] / 1000 / 4.2 * 3600 + m.Q_e[t] / 1000 / 4.2 * 3600 - \
+                                0.003 * (m.T_tank[t] - m.T_a[t])
 m.tank_temperatur = pyo.Constraint(m.t, rule=tank_temperatur)
 
 
 def max_power_tank(m, t):
-    return m.Q_e[t] <= 100  # kWh
+    return m.Q_e[t] <= 10_000  # W
 m.max_power = pyo.Constraint(m.t, rule=max_power_tank)
 
 def min_power_tank(m, t):
@@ -101,7 +109,7 @@ def min_power_tank(m, t):
 m.min_power = pyo.Constraint(m.t, rule=min_power_tank)
 
 def max_power_heating(m,t):
-    return m.Q_a[t] <= 30
+    return m.Q_a[t] <= 10_000
 m.max_power_heating = pyo.Constraint(m.t, rule=max_power_heating)
 
 def min_power_heating(m, t):
@@ -118,36 +126,57 @@ print(results)
 
 
 
-# create plots to visualize results
+# create plots to visualize resultsprice
 
 Q_e = [instance.Q_e[t]() for t in m.t]
 price = [var2[i] for i in range(1, 7)]
 Q_a = [instance.Q_a[t]() for t in m.t]
-# indoor temperature is constant 20°C
-# Q = [4.2 * 1000 / 3600 * (instance.T_innen[t]()-20) for t in m.t]
-# cost = [list(price)[i] * Q_e[i] for i in range(6)]
-# total_cost = sum(cost)
+T_room = [instance.T_room[t]() for t in m.t]
+T_tank = [instance.T_tank[t]() for t in m.t]
 
-# fig = plt.figure()
-# ax = plt.gca()
-# ax2 = ax.twinx()
-#
-# x_achse = [0, 1, 2, 3, 4, 5]
-#
-# lns1 = ax.bar(x_achse, Q_e, label="heating power")
-# lns2 = ax.plot(x_achse, Q_a, label="output energy", color="green")
-# # lns3 = ax.plot(x_achse, Q, label="energy in tank", color="red")
-# lns4 = ax2.plot(x_achse, price, color="orange", label="price")
-#
-# ax.set_ylabel("energy kWh")
-# ax2.set_ylabel("price per kWh")
-#
-# lines, labels = ax.get_legend_handles_labels()
-# lines2, labels2 = ax2.get_legend_handles_labels()
-# ax2.legend(lines + lines2, labels + labels2, loc=0)
-#
-# # plt.title("minimal cost = " + str(round(total_cost)))
-# plt.show()
+
+# indoor temperature is constant 20°C
+cost = [list(price)[i] * Q_e[i] for i in range(6)]
+total_cost = instance.OBJ()
+
+fig, (ax1, ax3) = plt.subplots(2, 1)
+
+ax2 = ax1.twinx()
+
+x_achse = np.arange(6)
+
+ax1.bar(x_achse, Q_e, label="boiler power")
+ax1.plot(x_achse, Q_a, label="heating power", color="green")
+ax2.plot(x_achse, price, color="orange", label="price")
+
+ax1.set_ylabel("energy kWh")
+ax2.set_ylabel("price per kWh")
+
+lines, labels = ax1.get_legend_handles_labels()
+lines2, labels2 = ax2.get_legend_handles_labels()
+ax2.legend(lines + lines2, labels + labels2, loc=0)
+
+# plt.title("minimal cost = " + str(round(total_cost)))
+plt.show()
+
+
+
+
+ax4 = ax3.twinx()
+
+ax3.plot(x_achse, T_room, label="room temperature", color="blue")
+ax4.plot(x_achse, T_tank, label="tank temperature", color="orange")
+
+ax3.set_ylabel("room temperature °C")
+ax4.set_ylabel("tank temperature °C")
+ax3.yaxis.label.set_color('blue')
+ax4.yaxis.label.set_color('orange')
+lines, labels = ax3.get_legend_handles_labels()
+lines2, labels2 = ax4.get_legend_handles_labels()
+ax4.legend(lines + lines2, labels + labels2, loc=0)
+plt.grid()
+plt.show()
+
 
 
 
