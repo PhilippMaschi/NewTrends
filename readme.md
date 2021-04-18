@@ -7,5 +7,3 @@ Open the conda prompt in that location and type following comand:
 
 
 
-
-test
