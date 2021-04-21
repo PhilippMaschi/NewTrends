@@ -1,5 +1,6 @@
 from pathlib import Path
 from Heatdemand_rc_model import Heatdemand_rc_model
+import os
 
 # define if new data is calculated or just loaded:
 load_data = False
@@ -7,7 +8,16 @@ print("load data is set to " + str(load_data) + '\n')
 
 # Read data:
 # base_results_path = Path('V:/projects/2020_RES_H/invert/output_20201111/AUT')
-base_results_path = Path('C:/Users/mascherbauer/PycharmProjects/NewTrends/inputdata')
+base_results_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "inputdata")
+# base_results_path = Path(__file__).parent.resolve()
+base_results_path = Path(base_results_path)
+
+# check if "outputdata folder exists:
+output_path = os.path.join(os.path.split(os.path.abspath(__file__))[0], "outputdata")
+try:
+    os.makedirs(output_path)
+except FileExistsError:
+    pass
 
 # define scenarios:
 # scenariolist = [r"_scen_aut_cheetah_ref_install_iopt_dh_95"]

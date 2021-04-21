@@ -2,7 +2,6 @@ import pyomo.environ as pyo
 import numpy as np
 from pyomo.opt import SolverStatus, TerminationCondition
 import matplotlib.pyplot as plt
-from pyomo.util.infeasible import log_infeasible_constraints
 
 
 # testing pyomo very simple example for 6 hours: (6 steps)

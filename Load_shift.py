@@ -2,7 +2,12 @@ import h5py
 import numpy as np
 from pathlib import Path
 from Simple_plots import *
+import pyomo.environ as pyo
+from pyomo.opt import SolverStatus, TerminationCondition
 
+import os
+
+path2data = os.path.join(os.path.split(os.path.abspath(__file__))[0], "inputdata")
 
 def read_h5(filename):
     print('reading hf file...')
@@ -45,7 +50,47 @@ dict3["T_outside"] = T_outside
 # plot heating cooling and DHW loads as well as temperature settings and outside temp:
 one_week(dict2, dict3)
 
-# TODO verschieben einer spitzenlast manuell und neu berechnen der jeweiligen loads mit core_rc_one_step...
+
+
+def run_model(length, data):
+    # model
+    m = pyo.AbstractModel()
+
+    # sets
+    m.t = pyo.RangeSet(1, length)
+
+
+
+    # parameters
+    m.q_heating = pyo.Param(m.t)
+    m.capacity = pyo.Param()
+    m.price = pyo.Param(m.t)
+    m.t_set_heating = pyo.Param(m.t)
+    m.t_outside = pyo.Param(m.t)
+
+    # variables
+    m.t_inside = pyo.Var(m.t, within=pyo.NonNegativeReals)
+
+    # objective
+    def min_cost(m):
+        rule = m.q_heating * m.price
+        return rule
+
+    # constraints
+    # T_inside <= T_set_heating + 3
+    def maximum_temperature_rule(m, t):
+        return m.t_inside[t] <= m.t_set_heating[t] + 3
+    m.t_inside_max = pyo.Constraint(m.t_inside, m.t, rule=maximum_temperature_rule)
+
+    # T_inside >= T_set_heating - 2
+    def minimum_temperature_rule(m, t):
+        return m.t_inside[t] >= m.t_set_heating[t] - 2
+    m.t_inside_min = pyo.Constraint(m.t_inside, m.t, rule=minimum_temperature_rule)
+
+
+
+
+
 
 
 
